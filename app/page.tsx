@@ -21,12 +21,18 @@ export default function HomePage() {
               your thoughts instantly and keeps them perfectly organized.
             </p>
             <div className='flex flex-col sm:flex-row gap-4 justify-center items-center'>
-              <button className='btn-primary px-8 py-3 text-lg'>
+              <a
+                href='/auth/signup'
+                className='bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 text-lg rounded-md font-medium transition-colors'
+              >
                 Get Started
-              </button>
-              <button className='btn-secondary px-8 py-3 text-lg'>
-                Learn More
-              </button>
+              </a>
+              <a
+                href='/auth/signin'
+                className='border border-input bg-background hover:bg-accent hover:text-accent-foreground px-8 py-3 text-lg rounded-md font-medium transition-colors'
+              >
+                Sign In
+              </a>
             </div>
           </div>
 

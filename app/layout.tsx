@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import { AuthProvider } from '@/lib/providers/auth-provider'
+import { QueryProvider } from '@/lib/providers/query-provider'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -128,7 +130,11 @@ export default function RootLayout({
   return (
     <html lang='en' className={inter.variable}>
       <body className={`${inter.className} antialiased`}>
-        <div id='root'>{children}</div>
+        <QueryProvider>
+          <AuthProvider>
+            <div id='root'>{children}</div>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   )
