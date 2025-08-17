@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "docker-toolkit": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["mcp", "gateway", "run"],
+      "env": {}
+    },
+    "exa": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "EXA_API_KEY", "mcp/exa"],
+      "env": {
+        "EXA_API_KEY": "bb5b62ed-1fba-45a5-9b55-aa91b9d4f871"
+      }
+    }
+  }
+}
