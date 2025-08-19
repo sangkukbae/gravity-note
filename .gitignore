@@ -65,4 +65,5 @@ logs
 .vitest/
 
 # Bundle analyzer
-.analyze/
+.analyze/.env
+.mcp.json
