@@ -3,11 +3,21 @@
 export interface Note {
   id: string
   user_id: string
+  title: string | null
   content: string
   created_at: string
   updated_at: string
-  is_rescued: boolean
-  original_note_id?: string
+}
+
+export interface CreateNoteInput {
+  title?: string | null
+  content: string
+}
+
+export interface UpdateNoteInput {
+  id: string
+  title?: string | null
+  content?: string
 }
 
 export interface User {
@@ -21,6 +31,20 @@ export interface SearchResult {
   note: Note
   snippet: string
   score: number
+}
+
+export interface NotesQuery {
+  search?: string
+  limit?: number
+  offset?: number
+  sortBy?: 'created_at' | 'updated_at' | 'title'
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface NotesResponse {
+  notes: Note[]
+  totalCount: number
+  hasMore: boolean
 }
 
 export interface SyncStatus {
