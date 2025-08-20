@@ -87,7 +87,7 @@ beforeEach(() => {
 
   // Reset fetch mock if it exists
   if (global.fetch && vi.isMockFunction(global.fetch)) {
-    (global.fetch as unknown as Mock).mockClear();
+    ;(global.fetch as unknown as Mock).mockClear()
   }
 
   // Mock console methods to reduce noise in tests
