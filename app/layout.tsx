@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/providers/auth-provider'
 import { QueryProvider } from '@/lib/providers/query-provider'
+import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
 
 const inter = Inter({
@@ -129,34 +130,41 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang='en' className={inter.variable}>
+    <html lang='en' className={inter.variable} suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
-        <QueryProvider>
-          <AuthProvider>
-            <div id='root'>{children}</div>
-            <Toaster
-              position='bottom-center'
-              richColors
-              // closeButton
-              expand={false}
-              offset={24}
-              toastOptions={{
-                duration: 3000,
-                style: {
-                  background: 'white',
-                  border: '1px solid #e5e5e5',
-                  color: '#171717',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  padding: '12px 16px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                },
-                className:
-                  'dark:!bg-neutral-800 dark:!border-neutral-700 dark:!text-neutral-100',
-              }}
-            />
-          </AuthProvider>
-        </QueryProvider>
+        <ThemeProvider
+          attribute='class'
+          defaultTheme='system'
+          enableSystem
+          disableTransitionOnChange
+        >
+          <QueryProvider>
+            <AuthProvider>
+              <div id='root'>{children}</div>
+              <Toaster
+                position='bottom-center'
+                richColors
+                // closeButton
+                expand={false}
+                offset={24}
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: 'white',
+                    border: '1px solid #e5e5e5',
+                    color: '#171717',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    padding: '12px 16px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                  },
+                  className:
+                    'dark:!bg-neutral-800 dark:!border-neutral-700 dark:!text-neutral-100',
+                }}
+              />
+            </AuthProvider>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
