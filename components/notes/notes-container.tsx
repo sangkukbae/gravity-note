@@ -14,6 +14,8 @@ interface NotesContainerProps {
   onRescueNote?: (noteId: string) => Promise<void>
   onSearchNotes?: (query: string) => Promise<Note[]>
   className?: string
+  searchQuery?: string
+  externalSearchControl?: boolean
 }
 
 export function NotesContainer({
@@ -22,14 +24,21 @@ export function NotesContainer({
   onRescueNote,
   onSearchNotes,
   className,
+  searchQuery: externalSearchQuery = '',
+  externalSearchControl = false,
 }: NotesContainerProps) {
   const [notes, setNotes] = useState<Note[]>(initialNotes)
   const [isCreating, setIsCreating] = useState(false)
   const [isRescuing, setIsRescuing] = useState(false)
   const [rescuingId, setRescuingId] = useState<string>()
-  const [searchQuery, setSearchQuery] = useState('')
+  const [internalSearchQuery, setInternalSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+
+  // Use external search query if provided, otherwise use internal
+  const searchQuery = externalSearchControl
+    ? externalSearchQuery
+    : internalSearchQuery
 
   // Update notes when initialNotes changes (from props/server state)
   useEffect(() => {
@@ -101,7 +110,9 @@ export function NotesContainer({
   // Handle search
   const handleSearch = useCallback(
     async (query: string) => {
-      setSearchQuery(query)
+      if (!externalSearchControl) {
+        setInternalSearchQuery(query)
+      }
 
       if (!query.trim()) {
         // Reset to original notes when search is cleared
@@ -122,18 +133,29 @@ export function NotesContainer({
         }
       }
     },
-    [onSearchNotes, initialNotes]
+    [onSearchNotes, initialNotes, externalSearchControl]
   )
+
+  // Handle external search query changes
+  useEffect(() => {
+    if (externalSearchControl && externalSearchQuery !== undefined) {
+      handleSearch(externalSearchQuery)
+    }
+  }, [externalSearchQuery, externalSearchControl, handleSearch])
 
   // Clear search and reset notes
   const handleClearSearch = useCallback(() => {
-    setSearchQuery('')
+    if (!externalSearchControl) {
+      setInternalSearchQuery('')
+      setIsSearchOpen(false)
+    }
     setNotes(initialNotes)
-    setIsSearchOpen(false)
-  }, [initialNotes])
+  }, [initialNotes, externalSearchControl])
 
-  // Global keyboard shortcuts
+  // Global keyboard shortcuts (only when not using external search control)
   useEffect(() => {
+    if (externalSearchControl) return
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl/Cmd + F to open search
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
@@ -153,32 +175,39 @@ export function NotesContainer({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isSearchOpen, searchQuery, handleClearSearch])
+  }, [isSearchOpen, searchQuery, handleClearSearch, externalSearchControl])
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
-      {/* Header with Input and Search */}
+      {/* Header with Input and optional Search */}
       <div className='sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border/50 z-10'>
-        <div className='p-4 space-y-4'>
+        <div
+          className={cn(
+            'p-4',
+            externalSearchControl ? 'space-y-0' : 'space-y-4'
+          )}
+        >
           {/* Main Note Input - Always Visible */}
           <NoteInput
             onSubmit={handleCreateNote}
             isLoading={isCreating}
             placeholder='Capture your thought...'
-            autoFocus={!isSearchOpen}
+            autoFocus={!isSearchOpen || externalSearchControl}
           />
 
-          {/* Search Bar */}
-          <div className='flex justify-end'>
-            <SearchBar
-              value={searchQuery}
-              onChange={handleSearch}
-              onClear={handleClearSearch}
-              isOpen={isSearchOpen}
-              onToggle={() => setIsSearchOpen(!isSearchOpen)}
-              placeholder='Search all your thoughts...'
-            />
-          </div>
+          {/* Search Bar - Only show when not using external control */}
+          {!externalSearchControl && (
+            <div className='flex justify-end mt-4'>
+              <SearchBar
+                value={searchQuery}
+                onChange={handleSearch}
+                onClear={handleClearSearch}
+                isOpen={isSearchOpen}
+                onToggle={() => setIsSearchOpen(!isSearchOpen)}
+                placeholder='Search all your thoughts...'
+              />
+            </div>
+          )}
         </div>
       </div>
 
