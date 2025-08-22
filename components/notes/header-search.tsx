@@ -49,9 +49,21 @@ export function HeaderSearch({
   // Global keyboard shortcut for Ctrl/Cmd + F
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      // Only handle Cmd+F or Ctrl+F, ensure we're not interfering with other shortcuts
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === 'f' &&
+        !e.shiftKey &&
+        !e.altKey
+      ) {
         e.preventDefault()
         setIsOpen(true)
+        // Focus the input after opening
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus()
+          }
+        }, 0)
       }
     }
 
@@ -98,7 +110,7 @@ export function HeaderSearch({
         </Button>
       ) : (
         // Expanded search input
-        <div className='flex items-center gap-2 animate-in slide-in-from-right-2 duration-200'>
+        <div className='flex items-center gap-2 animate-modern-fade-in'>
           <div className='relative'>
             <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
             <Input

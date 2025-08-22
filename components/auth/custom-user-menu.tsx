@@ -75,7 +75,7 @@ export function CustomUserMenu() {
 
       {isOpen && (
         <div
-          className='absolute right-0 mt-2 w-56 bg-popover border border-border rounded-md shadow-md z-50 animate-in fade-in-0 zoom-in-95'
+          className='absolute right-0 mt-2 w-56 bg-popover border border-border rounded-md shadow-md z-50 animate-modern-slide-down'
           style={{ top: '100%' }}
         >
           <div className='p-3 border-b border-border'>

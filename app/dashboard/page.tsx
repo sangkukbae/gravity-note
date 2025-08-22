@@ -2,9 +2,10 @@
 
 import { ProtectedRoute } from '@/components/auth/protected-route'
 import { CustomUserMenu } from '@/components/auth/custom-user-menu'
-import { NotesContainer } from '@/components/notes'
+import { NotesContainer, type NotesContainerRef } from '@/components/notes'
 import { HeaderSearch } from '@/components/notes/header-search'
-import { useCallback, useState } from 'react'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { useNotesRealtime } from '@/hooks/use-notes-realtime'
 import { useNotesMutations } from '@/hooks/use-notes-mutations'
 import { toast } from 'sonner'
@@ -13,6 +14,7 @@ import type { Note } from '@/lib/supabase/realtime'
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Note[]>([])
+  const notesContainerRef = useRef<NotesContainerRef>(null)
 
   // Real-time notes hook
   const {
@@ -113,6 +115,38 @@ export default function DashboardPage() {
     [searchNotes]
   )
 
+  // Global keyboard shortcuts for note creation (Ctrl+Space and Ctrl+N)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl+Space (or Cmd+Space on Mac) - intelligent note creation
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.code === 'Space' &&
+        !e.shiftKey &&
+        !e.altKey
+      ) {
+        e.preventDefault()
+        // Use focusInput which intelligently focuses input if visible, or opens modal if scrolled away
+        notesContainerRef.current?.focusInput()
+      }
+
+      // Check for Ctrl+N (or Cmd+N on Mac) - alternative shortcut for new note modal
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key === 'n' &&
+        !e.shiftKey &&
+        !e.altKey
+      ) {
+        e.preventDefault()
+        // Always open the note creation modal for Ctrl+N
+        notesContainerRef.current?.openNoteModal()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   // Display appropriate notes based on search state
   const displayNotes = searchQuery.trim() ? searchResults : notes
 
@@ -155,21 +189,35 @@ export default function DashboardPage() {
                 <h1 className='text-lg font-medium text-muted-foreground/80'>
                   Gravity Note
                 </h1>
-                {/* Sync status indicator */}
-                {isOfflineMode && (
-                  <span className='text-xs text-amber-500 bg-amber-50 px-2 py-1 rounded-full border border-amber-200'>
-                    Offline Mode
-                  </span>
-                )}
-                {realtimeState.connectionStatus === 'connecting' && (
-                  <span className='text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full border border-blue-200'>
-                    Connecting...
-                  </span>
-                )}
-                {realtimeState.isRealtimeConnected && (
-                  <span className='text-xs text-green-500 bg-green-50 px-2 py-1 rounded-full border border-green-200'>
-                    Live
-                  </span>
+                {/* Single unified status indicator */}
+                {realtimeState.connectionStatus === 'connecting' ? (
+                  <div className='flex items-center gap-1 text-xs text-blue-600'>
+                    <div className='w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse'></div>
+                    <span className='text-[10px] font-medium uppercase tracking-wide'>
+                      Connecting
+                    </span>
+                  </div>
+                ) : realtimeState.isRealtimeConnected ? (
+                  <div className='flex items-center gap-1 text-xs text-green-600'>
+                    <div className='w-1.5 h-1.5 bg-green-500 rounded-full'></div>
+                    <span className='text-[10px] font-medium uppercase tracking-wide'>
+                      Live
+                    </span>
+                  </div>
+                ) : isOfflineMode ? (
+                  <div className='flex items-center gap-1 text-xs text-amber-600'>
+                    <div className='w-1.5 h-1.5 bg-amber-500 rounded-full'></div>
+                    <span className='text-[10px] font-medium uppercase tracking-wide'>
+                      Offline Mode
+                    </span>
+                  </div>
+                ) : (
+                  <div className='flex items-center gap-1 text-xs text-red-600'>
+                    <div className='w-1.5 h-1.5 bg-red-500 rounded-full'></div>
+                    <span className='text-[10px] font-medium uppercase tracking-wide'>
+                      Disconnected
+                    </span>
+                  </div>
                 )}
               </div>
               <div className='flex items-center gap-3'>
@@ -178,6 +226,7 @@ export default function DashboardPage() {
                   onChange={handleSearch}
                   onClear={handleClearSearch}
                 />
+                <ThemeToggle />
                 <CustomUserMenu />
               </div>
             </div>
@@ -185,9 +234,9 @@ export default function DashboardPage() {
         </header>
 
         {/* Main notes interface */}
-        <main className='container mx-auto h-[calc(100vh-73px)]'>
+        <main className='container mx-auto'>
           <NotesContainer
-            className='h-full'
+            ref={notesContainerRef}
             searchQuery={searchQuery}
             externalSearchControl={true}
             onCreateNote={handleCreateNote}

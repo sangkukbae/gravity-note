@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
-import { FixedSizeList as List } from 'react-window'
+import { useMemo, useCallback } from 'react'
 import { NoteItem, Note } from './note-item'
 import { cn } from '@/lib/utils'
 import { SearchIcon, InboxIcon, LoaderIcon } from 'lucide-react'
+import { useInfiniteScroll } from '@/hooks/use-infinite-scroll'
 
 interface NoteListProps {
   notes: Note[]
@@ -15,71 +15,8 @@ interface NoteListProps {
   searchQuery?: string
   onSearchChange?: (query: string) => void
   className?: string
-  height?: number
-  itemHeight?: number
-}
-
-// Row component for virtual scrolling
-interface RowProps {
-  index: number
-  style: React.CSSProperties
-  data: {
-    notes: Note[]
-    onRescue?: (noteId: string) => Promise<void>
-    isRescuing?: boolean
-    rescuingId?: string
-    searchQuery?: string
-  }
-}
-
-function Row({ index, style, data }: RowProps) {
-  const { notes, onRescue, isRescuing, rescuingId, searchQuery } = data
-  const note = notes[index]
-
-  if (!note) return null
-
-  // Highlight search matches in content
-  const getHighlightedContent = (content: string, query: string) => {
-    if (!query) return content
-
-    const regex = new RegExp(`(${query})`, 'gi')
-    const parts = content.split(regex)
-
-    return parts.map((part, index) => {
-      if (part.toLowerCase() === query.toLowerCase()) {
-        return (
-          <mark
-            key={index}
-            className='bg-yellow-200 text-yellow-900 px-1 rounded'
-          >
-            {part}
-          </mark>
-        )
-      }
-      return part
-    })
-  }
-
-  const isCurrentlyRescuing = !!isRescuing && rescuingId === note.id
-
-  const enhancedNote: Note = {
-    ...note,
-    content:
-      searchQuery && typeof note.content === 'string'
-        ? getHighlightedContent(note.content, searchQuery)
-        : note.content,
-  }
-
-  return (
-    <div style={style}>
-      <NoteItem
-        note={enhancedNote}
-        isRescuing={isCurrentlyRescuing}
-        showRescueButton={index > 0} // Don't show rescue for the top note
-        {...(onRescue ? { onRescue } : {})}
-      />
-    </div>
-  )
+  onLoadMore?: () => Promise<void>
+  hasMore?: boolean
 }
 
 export function NoteList({
@@ -91,9 +28,34 @@ export function NoteList({
   searchQuery,
   onSearchChange,
   className,
-  height = 600,
-  itemHeight = 120,
+  onLoadMore,
+  hasMore = false,
 }: NoteListProps) {
+  // Highlight search matches in content
+  const getHighlightedContent = useCallback(
+    (content: string, query: string) => {
+      if (!query) return content
+
+      const regex = new RegExp(`(${query})`, 'gi')
+      const parts = content.split(regex)
+
+      return parts.map((part, index) => {
+        if (part.toLowerCase() === query.toLowerCase()) {
+          return (
+            <mark
+              key={index}
+              className='bg-yellow-200 text-yellow-900 px-1 rounded'
+            >
+              {part}
+            </mark>
+          )
+        }
+        return part
+      })
+    },
+    []
+  )
+
   // Filter notes based on search query
   const filteredNotes = useMemo(() => {
     if (!searchQuery || !searchQuery.trim()) return notes
@@ -107,14 +69,14 @@ export function NoteList({
     })
   }, [notes, searchQuery])
 
-  const itemData = useMemo(() => {
-    const base: RowProps['data'] = { notes: filteredNotes }
-    base.isRescuing = isRescuing
-    if (typeof rescuingId !== 'undefined') base.rescuingId = rescuingId
-    if (typeof searchQuery !== 'undefined') base.searchQuery = searchQuery
-    if (onRescue) base.onRescue = onRescue
-    return base
-  }, [filteredNotes, onRescue, isRescuing, rescuingId, searchQuery])
+  // Infinite scroll hook
+  const { lastElementRef, isLoading: isLoadingMore } = useInfiniteScroll({
+    loadMore: onLoadMore,
+    hasMore,
+    threshold: 0.1,
+    rootMargin: '200px',
+    disabled: isLoading || !!searchQuery, // Disable infinite scroll during loading or search
+  })
 
   // Empty states
   if (isLoading) {
@@ -175,20 +137,55 @@ export function NoteList({
     )
   }
 
-  // Use virtual scrolling for performance with large lists
+  // Native scroll with infinite loading
   return (
     <div className={cn('w-full', className)}>
-      <List
-        height={height}
-        width={'100%'}
-        itemCount={filteredNotes.length}
-        itemSize={itemHeight}
-        itemData={itemData}
-        overscanCount={5} // Render 5 extra items outside viewport for smooth scrolling
-        className='scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent'
-      >
-        {Row}
-      </List>
+      {/* Notes list with native scroll */}
+      <div className='space-y-0'>
+        {filteredNotes.map((note, index) => {
+          const isCurrentlyRescuing = !!isRescuing && rescuingId === note.id
+          const isLastItem = index === filteredNotes.length - 1
+
+          // Enhance note with search highlighting
+          const enhancedNote: Note = {
+            ...note,
+            content:
+              searchQuery && typeof note.content === 'string'
+                ? getHighlightedContent(note.content, searchQuery)
+                : note.content,
+          }
+
+          return (
+            <div
+              key={note.id}
+              ref={
+                isLastItem && hasMore && !searchQuery
+                  ? lastElementRef
+                  : undefined
+              }
+              className='px-4' // Container padding for clean boundaries
+            >
+              <NoteItem
+                note={enhancedNote}
+                isRescuing={isCurrentlyRescuing}
+                showRescueButton={index > 0} // Don't show rescue for the top note
+                showDivider={index < filteredNotes.length - 1} // Pass divider flag to note item
+                {...(onRescue ? { onRescue } : {})}
+              />
+            </div>
+          )
+        })}
+
+        {/* Loading more indicator */}
+        {isLoadingMore && (
+          <div className='flex items-center justify-center p-8'>
+            <div className='flex items-center gap-2 text-muted-foreground'>
+              <LoaderIcon className='h-4 w-4 animate-spin' />
+              <span>Loading more notes...</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
