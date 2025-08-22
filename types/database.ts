@@ -44,6 +44,8 @@ export interface Database {
           content: string
           created_at: string
           updated_at: string
+          is_rescued: boolean
+          original_note_id: string | null
         }
         Insert: {
           id?: string
@@ -52,6 +54,8 @@ export interface Database {
           content: string
           created_at?: string
           updated_at?: string
+          is_rescued?: boolean
+          original_note_id?: string | null
         }
         Update: {
           id?: string
@@ -60,6 +64,8 @@ export interface Database {
           content?: string
           created_at?: string
           updated_at?: string
+          is_rescued?: boolean
+          original_note_id?: string | null
         }
         Relationships: [
           {

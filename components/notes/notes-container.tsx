@@ -6,7 +6,7 @@ import { NoteList } from './note-list'
 import { SearchBar } from './search-bar'
 import { Note } from './note-item'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner' // Assuming sonner is installed for notifications
+// Toast notifications are handled by the parent component
 
 interface NotesContainerProps {
   initialNotes?: Note[]
@@ -57,10 +57,10 @@ export function NotesContainer({
         // Optimistically add to top of list
         setNotes(prevNotes => [newNote, ...prevNotes])
 
-        toast.success('Note captured!')
+        // Toast is handled by the parent component (dashboard)
       } catch (error) {
         console.error('Failed to create note:', error)
-        toast.error('Failed to save note. Please try again.')
+        // Error toast is handled by the parent component (dashboard)
         throw error // Re-throw to keep content in input
       } finally {
         setIsCreating(false)
@@ -95,10 +95,10 @@ export function NotesContainer({
           return [rescuedNote, ...otherNotes]
         })
 
-        toast.success('Note rescued to top!')
+        // Toast is handled by the parent component (dashboard)
       } catch (error) {
         console.error('Failed to rescue note:', error)
-        toast.error('Failed to rescue note. Please try again.')
+        // Error toast is handled by the parent component (dashboard)
       } finally {
         setIsRescuing(false)
         setRescuingId(undefined)
@@ -127,7 +127,7 @@ export function NotesContainer({
           setNotes(searchResults)
         } catch (error) {
           console.error('Search failed:', error)
-          toast.error('Search failed. Please try again.')
+          // Error toast is handled by the parent component (dashboard)
         } finally {
           setIsSearching(false)
         }
