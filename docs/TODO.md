@@ -3,8 +3,8 @@
 **Timeline**: 3-month solo developer roadmap  
 **Target**: MVP launch with core features  
 **Stack**: Next.js 14 + Supabase + Vercel  
-**Last Updated**: August 17, 2025  
-**Current Status**: ✅ **Week 1 Complete** - Foundation setup with authentication system fully implemented
+**Last Updated**: August 19, 2025  
+**Current Status**: 🚀 **Week 2 In Progress** - Core note operations: NoteInput component completed with keyboard shortcuts and auto-focus
 
 ---
 
@@ -86,9 +86,23 @@ This TODO list follows the 3-month implementation plan for Gravity Note, organiz
 
 ### Week 2: Core Note Operations
 
+**🎯 Progress Update (August 19, 2025)**:
+
+- ✅ **NoteInput Component Complete** - `components/notes/note-input.tsx`
+  - Card-style design with shadcn/ui integration
+  - Keyboard shortcuts: Shift+Enter (save), "/" (focus)
+  - Auto-focus behavior and loading states
+  - Production-ready with TypeScript interfaces
+
 #### Note Creation & Display
 
-- [ ] Build note input component with auto-focus
+- [x] Build note input component with auto-focus
+  - [x] Card-style design with shadcn/ui components
+  - [x] Keyboard shortcuts (Shift+Enter: save, /: focus)
+  - [x] Auto-focus on page load and after saving
+  - [x] Auto-resizing textarea with smart validation
+  - [x] Loading states and error handling
+  - [x] TypeScript interfaces for type safety
 - [ ] Implement instant note creation (< 100ms target)
 - [ ] Create note list component with virtual scrolling
 - [ ] Set up reverse chronological ordering
