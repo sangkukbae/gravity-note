@@ -12,7 +12,9 @@ export interface Note {
   created_at: string
   updated_at: string
   user_id: string
-  is_rescued?: boolean
+  title?: string | null
+  is_rescued: boolean
+  original_note_id?: string | null
 }
 
 interface NoteItemProps {
