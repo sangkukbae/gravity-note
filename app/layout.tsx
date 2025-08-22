@@ -135,15 +135,24 @@ export default function RootLayout({
           <AuthProvider>
             <div id='root'>{children}</div>
             <Toaster
-              position='top-right'
+              position='bottom-center'
               richColors
-              closeButton
+              // closeButton
+              expand={false}
+              offset={24}
               toastOptions={{
+                duration: 3000,
                 style: {
-                  background: 'hsl(var(--background))',
-                  border: '1px solid hsl(var(--border))',
-                  color: 'hsl(var(--foreground))',
+                  background: 'white',
+                  border: '1px solid #e5e5e5',
+                  color: '#171717',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  padding: '12px 16px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                 },
+                className:
+                  'dark:!bg-neutral-800 dark:!border-neutral-700 dark:!text-neutral-100',
               }}
             />
           </AuthProvider>
