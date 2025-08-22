@@ -112,23 +112,6 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-
-          {/* Status */}
-          <div className='bg-primary-50 dark:bg-primary-950 rounded-lg p-6'>
-            <h2 className='text-2xl font-semibold text-neutral-900 dark:text-white mb-4'>
-              Development Status
-            </h2>
-            <p className='text-neutral-600 dark:text-neutral-300 mb-4'>
-              Gravity Note is currently in active development. We&apos;re
-              building something amazing for you.
-            </p>
-            <div className='flex items-center justify-center gap-2'>
-              <div className='w-2 h-2 bg-primary-500 rounded-full animate-pulse'></div>
-              <span className='text-sm text-primary-600 dark:text-primary-400 font-medium'>
-                Phase 1: Foundation & Core Features
-              </span>
-            </div>
-          </div>
         </div>
       </div>
     </main>

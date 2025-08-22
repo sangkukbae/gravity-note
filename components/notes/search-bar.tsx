@@ -116,7 +116,7 @@ export function SearchBar({
           className={cn(
             'h-10 w-10 p-0',
             'hover:bg-muted/50',
-            'transition-colors duration-200'
+            'transition-colors duration-150'
           )}
           aria-label='Open search'
         >
