@@ -6,28 +6,23 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { SearchIcon, XIcon } from 'lucide-react'
 
-interface SearchBarProps {
+interface HeaderSearchProps {
   value: string
   onChange: (value: string) => void
   onClear?: () => void
   placeholder?: string
   className?: string
-  isOpen?: boolean
-  onToggle?: () => void
-  showToggle?: boolean
 }
 
-export function SearchBar({
+export function HeaderSearch({
   value,
   onChange,
   onClear,
-  placeholder = 'Search your notes...',
+  placeholder = 'Search notes...',
   className,
-  isOpen = false,
-  onToggle,
-  showToggle = true,
-}: SearchBarProps) {
+}: HeaderSearchProps) {
   const [localValue, setLocalValue] = useState(value)
+  const [isOpen, setIsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Debounce search input to avoid excessive API calls
@@ -44,12 +39,25 @@ export function SearchBar({
     setLocalValue(value)
   }, [value])
 
-  // Focus input when search becomes open
+  // Focus input when search opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus()
     }
   }, [isOpen])
+
+  // Global keyboard shortcut for Ctrl/Cmd + F
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        setIsOpen(true)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const handleClear = () => {
     setLocalValue('')
@@ -64,70 +72,34 @@ export function SearchBar({
     if (e.key === 'Escape') {
       if (localValue) {
         handleClear()
-      } else if (onToggle) {
-        onToggle()
+      } else {
+        setIsOpen(false)
       }
     }
   }
 
-  // If showToggle is false, always show the search bar
-  if (!showToggle) {
-    return (
-      <div className={cn('relative w-full max-w-[600px] mx-auto', className)}>
-        <div className='relative'>
-          <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
-          <Input
-            ref={inputRef}
-            type='text'
-            value={localValue}
-            onChange={e => setLocalValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className={cn(
-              'pl-10 pr-10 w-full',
-              'focus-visible:ring-2 focus-visible:ring-primary'
-            )}
-            aria-label='Search notes'
-          />
-          {localValue && (
-            <Button
-              onClick={handleClear}
-              variant='ghost'
-              size='sm'
-              className='absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0'
-              aria-label='Clear search'
-            >
-              <XIcon className='h-3 w-3' />
-            </Button>
-          )}
-        </div>
-      </div>
-    )
+  const toggleSearch = () => {
+    setIsOpen(!isOpen)
   }
 
   return (
-    <div className={cn('relative', className)}>
-      {/* Search Toggle Button */}
-      {!isOpen && onToggle && (
+    <div className={cn('relative flex items-center', className)}>
+      {!isOpen ? (
+        // Search toggle button
         <Button
-          onClick={onToggle}
+          onClick={toggleSearch}
           variant='ghost'
           size='sm'
-          className={cn(
-            'h-10 w-10 p-0',
-            'hover:bg-muted/50',
-            'transition-colors duration-200'
-          )}
+          className='h-8 w-8 p-0 rounded-full hover:bg-accent/50 transition-colors'
           aria-label='Open search'
+          title='Search notes (Ctrl+F)'
         >
           <SearchIcon className='h-4 w-4' />
         </Button>
-      )}
-
-      {/* Search Input */}
-      {isOpen && (
-        <div className='flex items-center gap-2 w-full max-w-[600px] mx-auto'>
-          <div className='relative flex-1'>
+      ) : (
+        // Expanded search input
+        <div className='flex items-center gap-2 animate-in slide-in-from-right-2 duration-200'>
+          <div className='relative'>
             <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
             <Input
               ref={inputRef}
@@ -137,8 +109,10 @@ export function SearchBar({
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               className={cn(
-                'pl-10 pr-10 w-full',
-                'focus-visible:ring-2 focus-visible:ring-primary'
+                // Responsive width constraints: narrower on mobile, optimal on desktop
+                'w-64 max-w-[min(400px,calc(100vw-8rem))] pl-10 pr-10 h-8',
+                'focus-visible:ring-2 focus-visible:ring-primary',
+                'border-border/50'
               )}
               aria-label='Search notes'
             />
@@ -154,18 +128,15 @@ export function SearchBar({
               </Button>
             )}
           </div>
-
-          {onToggle && (
-            <Button
-              onClick={onToggle}
-              variant='ghost'
-              size='sm'
-              className='h-10 w-10 p-0'
-              aria-label='Close search'
-            >
-              <XIcon className='h-4 w-4' />
-            </Button>
-          )}
+          <Button
+            onClick={toggleSearch}
+            variant='ghost'
+            size='sm'
+            className='h-8 w-8 p-0'
+            aria-label='Close search'
+          >
+            <XIcon className='h-4 w-4' />
+          </Button>
         </div>
       )}
     </div>
