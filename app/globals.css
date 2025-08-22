@@ -151,6 +151,36 @@
     @apply dark:focus:ring-offset-neutral-900;
   }
 
+  /* Modern minimal utilities for clean interfaces */
+  .modern-border-bottom {
+    border-bottom: 1px solid hsl(var(--border) / 0.3);
+  }
+
+  .modern-hover {
+    transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .modern-hover:hover {
+    background-color: hsl(var(--muted) / 0.3);
+  }
+
+  /* Enhanced shadow utilities for better card separation */
+  .shadow-card {
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+  }
+
+  .shadow-card-hover {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
+  }
+
+  .dark .shadow-card {
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.25);
+  }
+
+  .dark .shadow-card-hover {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+  }
+
   /* Animation utilities */
   .animate-in {
     animation: fadeIn 0.3s ease-in-out;
@@ -158,6 +188,119 @@
 
   .animate-out {
     animation: fadeOut 0.3s ease-in-out;
+  }
+
+  /* Modern subtle animation classes */
+  .animate-modern-fade-in {
+    animation: modernFadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-modern-slide-down {
+    animation: modernSlideDown 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-modern-scale-in {
+    animation: modernScaleIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Keyframe animations for enhanced card interactions */
+  @keyframes cardHover {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-2px);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Modern animation keyframes */
+  @keyframes modernFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modernSlideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes modernScaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Modern Radix dropdown animations */
+  .dropdown-modern {
+    animation-duration: 150ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .dropdown-modern[data-state='open'] {
+    animation-name: modernDropdownOpen;
+  }
+
+  .dropdown-modern[data-state='closed'] {
+    animation-name: modernDropdownClose;
+  }
+
+  @keyframes modernDropdownOpen {
+    from {
+      opacity: 0;
+      transform: scale(0.98) translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes modernDropdownClose {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.98) translateY(-2px);
+    }
   }
 }
 
@@ -213,6 +356,122 @@
 
   .dark .note-container {
     @apply text-neutral-100 placeholder:text-neutral-400;
+  }
+
+  /* Enhanced typography for improved readability */
+  .prose-neutral {
+    color: theme('colors.neutral.700');
+    line-height: 1.7;
+    font-feature-settings:
+      'kern' 1,
+      'liga' 1,
+      'calt' 1;
+  }
+
+  .dark .prose-neutral {
+    color: theme('colors.neutral.300');
+  }
+
+  /* Enhanced note card styles for superior visual separation */
+  .note-card-enhanced {
+    @apply bg-white/95 border border-neutral-200/70 rounded-xl;
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(1px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .note-card-enhanced:hover {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
+    @apply border-neutral-300/80 bg-white;
+    transform: translateY(-2px);
+  }
+
+  .dark .note-card-enhanced {
+    @apply bg-neutral-900/95 border-neutral-700/70;
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.25);
+  }
+
+  .dark .note-card-enhanced:hover {
+    @apply bg-neutral-900 border-neutral-600/80;
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Enhanced card separation background */
+  .note-list-background {
+    @apply bg-neutral-50/30;
+  }
+
+  .dark .note-list-background {
+    @apply bg-neutral-950/30;
+  }
+
+  /* Enhanced rescued note accent */
+  .note-card-rescued {
+    @apply border-l-4 border-l-primary-500 bg-primary-50/30;
+  }
+
+  .dark .note-card-rescued {
+    @apply bg-primary-900/30 border-l-primary-500;
+  }
+
+  /* Enhanced text rendering utilities */
+  .font-feature-settings-default {
+    font-feature-settings:
+      'kern' 1,
+      'liga' 1,
+      'calt' 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Improved readability for note content */
+  .note-content {
+    @apply leading-relaxed;
+    letter-spacing: 0.015em;
+    word-spacing: 0.05em;
+  }
+
+  .note-content p {
+    @apply mb-3 last:mb-0;
+  }
+
+  .note-content h1,
+  .note-content h2,
+  .note-content h3,
+  .note-content h4,
+  .note-content h5,
+  .note-content h6 {
+    @apply font-semibold leading-tight mb-2 mt-3 first:mt-0;
+  }
+
+  .note-content ul,
+  .note-content ol {
+    @apply mb-3 space-y-1;
+  }
+
+  .note-content blockquote {
+    @apply border-l-4 border-primary/30 pl-4 my-3 italic text-neutral-600;
+  }
+
+  .dark .note-content blockquote {
+    @apply text-neutral-400;
+  }
+
+  .note-content code {
+    @apply px-1.5 py-0.5 text-xs bg-neutral-100 rounded font-mono border;
+  }
+
+  .dark .note-content code {
+    @apply bg-neutral-800 border-neutral-700;
+  }
+
+  .note-content pre {
+    @apply bg-neutral-50 p-3 rounded-md my-2 overflow-x-auto border;
+  }
+
+  .dark .note-content pre {
+    @apply bg-neutral-900 border-neutral-700;
   }
 
   /* Loading animations */
