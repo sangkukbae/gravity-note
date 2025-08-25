@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -25,14 +25,22 @@ export function HeaderSearch({
   const [isOpen, setIsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Debounce search input to avoid excessive API calls
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onChange(localValue)
-    }, 300) // 300ms debounce
+  // Optimized debouncing with useCallback for stable onChange reference
+  const debouncedOnChange = useCallback(
+    (value: string) => {
+      const timer = setTimeout(() => {
+        onChange(value)
+      }, 300) // 300ms debounce
 
-    return () => clearTimeout(timer)
-  }, [localValue, onChange])
+      return () => clearTimeout(timer)
+    },
+    [onChange]
+  )
+
+  useEffect(() => {
+    const cleanup = debouncedOnChange(localValue)
+    return cleanup
+  }, [localValue, debouncedOnChange])
 
   // Keep local value in sync with prop value
   useEffect(() => {
@@ -46,53 +54,57 @@ export function HeaderSearch({
     }
   }, [isOpen])
 
-  // Global keyboard shortcut for Ctrl/Cmd + F
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle Cmd+F or Ctrl+F, ensure we're not interfering with other shortcuts
-      if (
-        (e.ctrlKey || e.metaKey) &&
-        e.key.toLowerCase() === 'f' &&
-        !e.shiftKey &&
-        !e.altKey
-      ) {
-        e.preventDefault()
-        setIsOpen(true)
-        // Focus the input after opening
-        setTimeout(() => {
-          if (inputRef.current) {
-            inputRef.current.focus()
-          }
-        }, 0)
-      }
+  // Optimize keyboard handler with stable reference
+  const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
+    // Only handle Cmd+F or Ctrl+F, ensure we're not interfering with other shortcuts
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      e.key.toLowerCase() === 'f' &&
+      !e.shiftKey &&
+      !e.altKey
+    ) {
+      e.preventDefault()
+      setIsOpen(true)
+      // Focus the input after opening
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus()
+        }
+      }, 0)
     }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const handleClear = () => {
+  // Global keyboard shortcut for Ctrl/Cmd + F
+  useEffect(() => {
+    document.addEventListener('keydown', handleGlobalKeyDown)
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [handleGlobalKeyDown])
+
+  const handleClear = useCallback(() => {
     setLocalValue('')
     onChange('')
     onClear?.()
     if (inputRef.current) {
       inputRef.current.focus()
     }
-  }
+  }, [onChange, onClear])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      if (localValue) {
-        handleClear()
-      } else {
-        setIsOpen(false)
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (localValue) {
+          handleClear()
+        } else {
+          setIsOpen(false)
+        }
       }
-    }
-  }
+    },
+    [localValue, handleClear]
+  )
 
-  const toggleSearch = () => {
+  const toggleSearch = useCallback(() => {
     setIsOpen(!isOpen)
-  }
+  }, [isOpen])
 
   return (
     <div className={cn('relative flex items-center', className)}>

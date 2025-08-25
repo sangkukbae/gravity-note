@@ -4,17 +4,29 @@ import { ProtectedRoute } from '@/components/auth/protected-route'
 import { CustomUserMenu } from '@/components/auth/custom-user-menu'
 import { NotesContainer, type NotesContainerRef } from '@/components/notes'
 import { HeaderSearch } from '@/components/notes/header-search'
+import {
+  CommandPalette,
+  useCommandPalette,
+} from '@/components/search/command-palette'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
-import { useCallback, useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef, useMemo } from 'react'
 import { useNotesRealtime } from '@/hooks/use-notes-realtime'
 import { useNotesMutations } from '@/hooks/use-notes-mutations'
 import { toast } from 'sonner'
+import { SearchIcon } from 'lucide-react'
 import type { Note } from '@/lib/supabase/realtime'
+import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
 
 export default function DashboardPage() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Note[]>([])
   const notesContainerRef = useRef<NotesContainerRef>(null)
+
+  // Command Palette state
+  const {
+    open: isCommandPaletteOpen,
+    setOpen: setCommandPaletteOpen,
+    openCommandPalette,
+    closeCommandPalette,
+  } = useCommandPalette()
 
   // Real-time notes hook
   const {
@@ -37,38 +49,49 @@ export default function DashboardPage() {
   const {
     createNoteAsync,
     rescueNoteAsync,
-    searchNotes,
+    searchNotesEnhanced,
     isCreating,
     isRescuing,
     createError,
     rescueError,
   } = useNotesMutations()
 
-  const handleSearch = useCallback(
+  // Command Palette search handler
+  const handleCommandPaletteSearch = useCallback(
     async (query: string) => {
-      setSearchQuery(query)
-
-      if (!query.trim()) {
-        setSearchResults([])
-        return
-      }
-
       try {
-        const results = await searchNotes(query)
-        setSearchResults(results)
+        // Use enhanced search with highlighting
+        const { results, metadata } = await searchNotesEnhanced(query, {
+          maxResults: 50,
+        })
+
+        // Show search feedback for enhanced search
+        if (metadata.usedEnhancedSearch && results.length > 0) {
+          console.log(
+            `Enhanced search found ${results.length} results in ${metadata.searchTime}ms`
+          )
+        }
+
+        return { results, metadata }
       } catch (error) {
-        console.error('Search failed:', error)
+        console.error('Command palette search failed:', error)
         toast.error('Search failed. Please try again.')
-        setSearchResults([])
+        throw error
       }
     },
-    [searchNotes]
+    [searchNotesEnhanced]
   )
 
-  const handleClearSearch = useCallback(() => {
-    setSearchQuery('')
-    setSearchResults([])
-  }, [])
+  // Handle search result selection
+  const handleSearchResultSelect = useCallback(
+    (result: EnhancedSearchResult | Note) => {
+      // For now, just log the selection - you can navigate to the note here
+      console.log('Search result selected:', result.id)
+      toast.success('Note selected!')
+      // TODO: Implement navigation to note (could open in modal, navigate, etc.)
+    },
+    []
+  )
 
   // Handle note creation with error handling
   const handleCreateNote = useCallback(
@@ -100,20 +123,7 @@ export default function DashboardPage() {
     [rescueNoteAsync]
   )
 
-  // Handle search notes for the container
-  const handleSearchNotes = useCallback(
-    async (query: string) => {
-      if (!query.trim()) return []
-
-      try {
-        return await searchNotes(query)
-      } catch (error) {
-        console.error('Search failed:', error)
-        throw error
-      }
-    },
-    [searchNotes]
-  )
+  // Note: Search functionality is now handled exclusively by the Command Palette
 
   // Global keyboard shortcuts for note creation (Ctrl+Space and Ctrl+N)
   useEffect(() => {
@@ -146,9 +156,6 @@ export default function DashboardPage() {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
-
-  // Display appropriate notes based on search state
-  const displayNotes = searchQuery.trim() ? searchResults : notes
 
   // Show loading state
   if (isLoading) {
@@ -221,11 +228,22 @@ export default function DashboardPage() {
                 )}
               </div>
               <div className='flex items-center gap-3'>
-                <HeaderSearch
-                  value={searchQuery}
-                  onChange={handleSearch}
-                  onClear={handleClearSearch}
-                />
+                <button
+                  onClick={openCommandPalette}
+                  className='flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground rounded-md border border-border/50 hover:bg-accent/50 hover:text-foreground transition-colors'
+                  title='Search notes (Cmd+F)'
+                >
+                  <SearchIcon className='h-4 w-4' />
+                  <span className='hidden sm:inline'>Search notes...</span>
+                  <div className='hidden sm:flex items-center gap-1 ml-2 text-xs'>
+                    <kbd className='px-1.5 py-0.5 bg-muted rounded text-[10px]'>
+                      ⌘
+                    </kbd>
+                    <kbd className='px-1.5 py-0.5 bg-muted rounded text-[10px]'>
+                      F
+                    </kbd>
+                  </div>
+                </button>
                 <ThemeToggle />
                 <CustomUserMenu />
               </div>
@@ -234,17 +252,24 @@ export default function DashboardPage() {
         </header>
 
         {/* Main notes interface */}
-        <main className='container mx-auto'>
+        <main className='container mx-auto px-4 py-6'>
           <NotesContainer
             ref={notesContainerRef}
-            searchQuery={searchQuery}
+            searchQuery='' // No search needed - handled by Command Palette
             externalSearchControl={true}
             onCreateNote={handleCreateNote}
             onRescueNote={handleRescueNote}
-            onSearchNotes={handleSearchNotes}
-            initialNotes={displayNotes}
+            initialNotes={notes}
           />
         </main>
+
+        {/* Command Palette Modal */}
+        <CommandPalette
+          open={isCommandPaletteOpen}
+          onOpenChange={setCommandPaletteOpen}
+          onSearch={handleCommandPaletteSearch}
+          onResultSelect={handleSearchResultSelect}
+        />
       </div>
     </ProtectedRoute>
   )
