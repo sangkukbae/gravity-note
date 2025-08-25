@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { SearchIcon, XIcon } from 'lucide-react'
+import { SearchErrorWrapper } from '@/components/search/error-boundary'
 
 interface HeaderSearchProps {
   value: string
@@ -107,35 +108,36 @@ export function HeaderSearch({
   }, [isOpen])
 
   return (
-    <div className={cn('relative flex items-center', className)}>
-      {!isOpen ? (
-        // Search toggle button
-        <Button
-          onClick={toggleSearch}
-          variant='ghost'
-          size='sm'
-          className='h-8 w-8 p-0 rounded-full hover:bg-accent/50 transition-colors'
-          aria-label='Open search'
-          title='Search notes (Ctrl+F)'
-        >
-          <SearchIcon className='h-4 w-4' />
-        </Button>
-      ) : (
-        // Expanded search input
-        <div className='flex items-center gap-2 animate-modern-fade-in'>
-          <div className='relative'>
-            <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
-            <Input
-              ref={inputRef}
-              type='text'
-              value={localValue}
-              onChange={e => setLocalValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              className={cn(
-                // Responsive width constraints: narrower on mobile, optimal on desktop
-                'w-64 max-w-[min(400px,calc(100vw-8rem))] pl-10 pr-10 h-8',
-                'focus-visible:ring-2 focus-visible:ring-primary',
+    <SearchErrorWrapper className="relative flex items-center">
+      <div className={cn('relative flex items-center', className)}>
+        {!isOpen ? (
+          // Search toggle button
+          <Button
+            onClick={toggleSearch}
+            variant='ghost'
+            size='sm'
+            className='h-8 w-8 p-0 rounded-full hover:bg-accent/50 transition-colors'
+            aria-label='Open search'
+            title='Search notes (Ctrl+F)'
+          >
+            <SearchIcon className='h-4 w-4' />
+          </Button>
+        ) : (
+          // Expanded search input
+          <div className='flex items-center gap-2 animate-modern-fade-in'>
+            <div className='relative'>
+              <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
+              <Input
+                ref={inputRef}
+                type='text'
+                value={localValue}
+                onChange={e => setLocalValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                className={cn(
+                  // Responsive width constraints: narrower on mobile, optimal on desktop
+                  'w-64 max-w-[min(400px,calc(100vw-8rem))] pl-10 pr-10 h-8',
+                  'focus-visible:ring-2 focus-visible:ring-primary',
                 'border-border/50'
               )}
               aria-label='Search notes'
@@ -163,6 +165,7 @@ export function HeaderSearch({
           </Button>
         </div>
       )}
-    </div>
+      </div>
+    </SearchErrorWrapper>
   )
 }

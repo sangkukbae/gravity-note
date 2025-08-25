@@ -8,6 +8,7 @@ import {
   CommandPalette,
   useCommandPalette,
 } from '@/components/search/command-palette'
+import { SearchErrorWrapper } from '@/components/search/error-boundary'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useCallback, useState, useEffect, useRef, useMemo } from 'react'
 import { useNotesRealtime } from '@/hooks/use-notes-realtime'
@@ -264,12 +265,14 @@ export default function DashboardPage() {
         </main>
 
         {/* Command Palette Modal */}
-        <CommandPalette
-          open={isCommandPaletteOpen}
-          onOpenChange={setCommandPaletteOpen}
-          onSearch={handleCommandPaletteSearch}
-          onResultSelect={handleSearchResultSelect}
-        />
+        <SearchErrorWrapper>
+          <CommandPalette
+            open={isCommandPaletteOpen}
+            onOpenChange={setCommandPaletteOpen}
+            onSearch={handleCommandPaletteSearch}
+            onResultSelect={handleSearchResultSelect}
+          />
+        </SearchErrorWrapper>
       </div>
     </ProtectedRoute>
   )
