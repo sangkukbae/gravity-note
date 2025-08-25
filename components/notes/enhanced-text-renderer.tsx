@@ -150,8 +150,10 @@ export function EnhancedTextRenderer({
         'prose prose-sm max-w-none',
         // Enhanced readability styles
         'text-foreground/90',
-        // Better line spacing and word spacing
-        '[&>*]:mb-3 [&>*:last-child]:mb-0',
+        // Better line spacing and word spacing - adjusted for inline usage
+        isTruncated && !isExpanded
+          ? '[&>*]:mb-0 [&>*:last-child]:mb-0 inline' // Inline when truncated
+          : '[&>*]:mb-3 [&>*:last-child]:mb-0', // Block when expanded
         // Ensure proper text rendering
         'font-feature-settings-default',
         className
@@ -165,11 +167,7 @@ export function EnhancedTextRenderer({
       }}
     >
       {segments.map(renderSegment)}
-
-      {/* Show truncation indicator */}
-      {isTruncated && !isExpanded && (
-        <span className='text-muted-foreground text-sm'>…</span>
-      )}
+      {/* No truncation indicator here - parent will handle it */}
     </div>
   )
 }
