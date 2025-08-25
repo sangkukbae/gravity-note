@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -34,7 +34,7 @@ interface NoteItemProps {
   showDivider?: boolean
 }
 
-export function NoteItem({
+export const NoteItem = memo(function NoteItem({
   note,
   onRescue,
   isRescuing = false,
@@ -134,7 +134,7 @@ export function NoteItem({
           // Modern minimal approach - clean container with subtle boundaries
           'bg-transparent hover:bg-muted/30',
           // Reddit-style spacing - generous padding with proper breathing room
-          'py-4 px-0', // Vertical padding for content, no horizontal padding to align with container
+          'py-4 px-4', // Vertical padding for content, horizontal padding for breathing room
           // Modern hover interaction - subtle background change
           'transition-colors duration-150 ease-out',
           // Clean rescued note accent - minimal but clear
@@ -149,104 +149,7 @@ export function NoteItem({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Main content row */}
-        <div className='flex items-start gap-3'>
-          {/* Note Content */}
-          <div className='flex-1 min-w-0'>
-            <div
-              className={cn(
-                // Base container for enhanced readability
-                'break-words',
-                // Smooth transition for height changes
-                'transition-all duration-150 ease-out',
-                // Enhanced content spacing
-                'space-y-1'
-              )}
-            >
-              {typeof note.content === 'string' ? (
-                <EnhancedTextRenderer
-                  content={note.content}
-                  isExpanded={isExpanded}
-                  maxLength={CHAR_LIMIT}
-                  className={cn(
-                    // Additional styling for enhanced readability
-                    'prose-neutral',
-                    // Improved text rendering
-                    'antialiased'
-                  )}
-                />
-              ) : (
-                // Fallback for non-string content
-                <div className='text-sm leading-relaxed text-foreground/90'>
-                  {note.content}
-                </div>
-              )}
-            </div>
-
-            {/* Show more/less button */}
-            {shouldShowExpandButton && (
-              <button
-                onClick={handleToggleExpand}
-                onKeyDown={handleKeyDown}
-                className={cn(
-                  'inline-flex items-center gap-1 mt-2 text-xs',
-                  'text-primary hover:text-primary/80',
-                  'transition-colors duration-150',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-1 rounded',
-                  'cursor-pointer select-none'
-                )}
-                aria-expanded={isExpanded}
-                aria-label={
-                  isExpanded ? 'Show less content' : 'Show more content'
-                }
-              >
-                <span className='font-medium'>
-                  {isExpanded ? 'Show less' : 'Show more'}
-                </span>
-                {isExpanded ? (
-                  <ChevronUpIcon className='h-3 w-3 transition-transform duration-150' />
-                ) : (
-                  <ChevronDownIcon className='h-3 w-3 transition-transform duration-150' />
-                )}
-              </button>
-            )}
-          </div>
-
-          {/* Rescue Button */}
-          {showRescueButton && onRescue && (
-            <div
-              className={cn(
-                'flex-shrink-0',
-                // Modern reveal pattern - subtle and clean
-                'opacity-0 group-hover:opacity-70 transition-opacity duration-150',
-                (isHovered || isRescuing) && 'opacity-70'
-              )}
-            >
-              <Button
-                onClick={handleRescue}
-                disabled={isRescuing}
-                variant='ghost'
-                size='sm'
-                className={cn(
-                  'h-7 w-7 p-0',
-                  'hover:bg-muted hover:text-foreground',
-                  'transition-colors duration-150 rounded-md',
-                  'text-muted-foreground/60'
-                )}
-                aria-label='Rescue note to top'
-                title='Bring this note back to the top'
-              >
-                {isRescuing ? (
-                  <LoaderIcon className='h-3 w-3 animate-spin' />
-                ) : (
-                  <ArrowUpIcon className='h-3 w-3' />
-                )}
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Timestamp row */}
+        {/* Header Zone - Left aligned time info */}
         <div className='flex items-center gap-2 text-xs text-muted-foreground/70'>
           <ClockIcon className='h-3 w-3' />
           <time
@@ -263,6 +166,111 @@ export function NoteItem({
             </>
           )}
         </div>
+
+        {/* Content Zone - Note content and inline expand controls */}
+        <div className='flex-1 min-w-0'>
+          <div
+            className={cn(
+              // Base container for enhanced readability
+              'break-words',
+              // Smooth transition for height changes
+              'transition-all duration-150 ease-out'
+            )}
+          >
+            {typeof note.content === 'string' ? (
+              <div
+                className={
+                  shouldShowExpandButton && !isExpanded ? 'inline' : 'block'
+                }
+              >
+                <EnhancedTextRenderer
+                  content={note.content}
+                  isExpanded={isExpanded}
+                  maxLength={CHAR_LIMIT}
+                  className={cn(
+                    // Additional styling for enhanced readability
+                    'prose-neutral',
+                    // Improved text rendering
+                    'antialiased',
+                    // Remove bottom margin to make content inline with show more button
+                    '[&>*:last-child]:mb-0'
+                  )}
+                />
+                {/* Show truncation indicator and button immediately after content when truncated */}
+                {shouldShowExpandButton && !isExpanded && (
+                  <button
+                    onClick={handleToggleExpand}
+                    onKeyDown={handleKeyDown}
+                    className={cn(
+                      'inline-flex items-center gap-1 text-xs ml-1',
+                      'text-primary hover:text-primary/80',
+                      'transition-colors duration-150',
+                      'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-1 rounded',
+                      'cursor-pointer select-none'
+                    )}
+                    aria-expanded={isExpanded}
+                    aria-label='Show more content'
+                  >
+                    <span className='font-medium'>Show more</span>
+                    <ChevronDownIcon className='h-3 w-3 transition-transform duration-150' />
+                  </button>
+                )}
+                {/* Show less button when expanded - placed below content */}
+                {shouldShowExpandButton && isExpanded && (
+                  <div className='mt-2'>
+                    <button
+                      onClick={handleToggleExpand}
+                      onKeyDown={handleKeyDown}
+                      className={cn(
+                        'inline-flex items-center gap-1 text-xs',
+                        'text-primary hover:text-primary/80',
+                        'transition-colors duration-150',
+                        'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-1 rounded',
+                        'cursor-pointer select-none'
+                      )}
+                      aria-expanded={isExpanded}
+                      aria-label='Show less content'
+                    >
+                      <span className='font-medium'>Show less</span>
+                      <ChevronUpIcon className='h-3 w-3 transition-transform duration-150' />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Fallback for non-string content
+              <div className='text-sm leading-relaxed text-foreground/90'>
+                {note.content}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action Zone - Left aligned rescue button, always visible */}
+        {showRescueButton && onRescue && (
+          <div className='flex items-center'>
+            <Button
+              onClick={handleRescue}
+              disabled={isRescuing}
+              variant='ghost'
+              size='sm'
+              className={cn(
+                'h-6 w-6 p-0',
+                'hover:bg-muted hover:text-foreground',
+                'transition-colors duration-150 rounded-md',
+                'text-muted-foreground/60'
+              )}
+              aria-label='Rescue note to top'
+              title='Bring this note back to the top'
+            >
+              {isRescuing ? (
+                <LoaderIcon className='h-3 w-3 animate-spin' />
+              ) : (
+                <ArrowUpIcon className='h-3 w-3' />
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Reddit-style divider with proper spacing and alignment */}
@@ -278,4 +286,4 @@ export function NoteItem({
       )}
     </div>
   )
-}
+})

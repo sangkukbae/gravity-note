@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, memo } from 'react'
 import { NoteItem, Note } from './note-item'
 import { cn } from '@/lib/utils'
 import { SearchIcon, InboxIcon, LoaderIcon } from 'lucide-react'
@@ -19,7 +19,7 @@ interface NoteListProps {
   hasMore?: boolean
 }
 
-export function NoteList({
+export const NoteList = memo(function NoteList({
   notes,
   onRescue,
   isLoading = false,
@@ -31,15 +31,22 @@ export function NoteList({
   onLoadMore,
   hasMore = false,
 }: NoteListProps) {
-  // Highlight search matches in content
-  const getHighlightedContent = useCallback(
-    (content: string, query: string) => {
+  // Highlight search matches in content - memoized for performance
+  const getHighlightedContent = useMemo(() => {
+    const highlightCache = new Map<string, React.ReactNode>()
+
+    return (content: string, query: string) => {
       if (!query) return content
+
+      const cacheKey = `${content}_${query.toLowerCase()}`
+      if (highlightCache.has(cacheKey)) {
+        return highlightCache.get(cacheKey)
+      }
 
       const regex = new RegExp(`(${query})`, 'gi')
       const parts = content.split(regex)
 
-      return parts.map((part, index) => {
+      const result = parts.map((part, index) => {
         if (part.toLowerCase() === query.toLowerCase()) {
           return (
             <mark
@@ -52,9 +59,11 @@ export function NoteList({
         }
         return part
       })
-    },
-    []
-  )
+
+      highlightCache.set(cacheKey, result)
+      return result
+    }
+  }, [])
 
   // Filter notes based on search query
   const filteredNotes = useMemo(() => {
@@ -188,4 +197,4 @@ export function NoteList({
       </div>
     </div>
   )
-}
+})
