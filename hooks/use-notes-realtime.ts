@@ -32,6 +32,7 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
 
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
+  // Create stable Supabase client instance to prevent re-renders
   const supabase = useMemo(() => createClient(), [])
 
   // Real-time manager instance
@@ -86,6 +87,14 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
   const handleRealtimeErrorRef = useRef<(error: Error) => void>()
 
   // Update the handler references when dependencies change
+  // Optimize by memoizing the setQueryData function
+  const optimizedSetQueryData = useCallback(
+    (updater: (oldNotes: Note[] | undefined) => Note[]) => {
+      queryClient.setQueryData<Note[]>(notesQueryKey, updater)
+    },
+    [queryClient, notesQueryKey]
+  )
+
   handleRealtimeInsertRef.current = useCallback(
     (newNote: Note) => {
       setRealtimeState(prev => ({
@@ -93,7 +102,7 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         lastRealtimeActivity: new Date(),
       }))
 
-      queryClient.setQueryData<Note[]>(notesQueryKey, (oldNotes = []) => {
+      optimizedSetQueryData((oldNotes = []) => {
         // Check if note already exists to prevent duplicates
         const noteExists = oldNotes.some(note => note.id === newNote.id)
         if (noteExists) {
@@ -104,7 +113,7 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         return [newNote, ...oldNotes]
       })
     },
-    [queryClient, notesQueryKey]
+    [optimizedSetQueryData]
   )
 
   handleRealtimeUpdateRef.current = useCallback(
@@ -114,7 +123,7 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         lastRealtimeActivity: new Date(),
       }))
 
-      queryClient.setQueryData<Note[]>(notesQueryKey, (oldNotes = []) => {
+      optimizedSetQueryData((oldNotes = []) => {
         // Update the note and re-sort the entire list by updated_at
         const updatedNotes = oldNotes.map(note =>
           note.id === updatedNote.id ? updatedNote : note
@@ -127,7 +136,7 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         )
       })
     },
-    [queryClient, notesQueryKey]
+    [optimizedSetQueryData]
   )
 
   handleRealtimeDeleteRef.current = useCallback(
@@ -137,11 +146,11 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         lastRealtimeActivity: new Date(),
       }))
 
-      queryClient.setQueryData<Note[]>(notesQueryKey, (oldNotes = []) => {
+      optimizedSetQueryData((oldNotes = []) => {
         return oldNotes.filter(note => note.id !== deletedNoteId)
       })
     },
-    [queryClient, notesQueryKey]
+    [optimizedSetQueryData]
   )
 
   handleRealtimeErrorRef.current = useCallback(
