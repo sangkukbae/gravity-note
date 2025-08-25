@@ -491,6 +491,43 @@
   .dark .loading-skeleton {
     @apply bg-neutral-700;
   }
+
+  /* Command Palette enhanced focus styles */
+  [cmdk-input-wrapper] {
+    transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  [cmdk-input-wrapper]:focus-within {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 1px hsl(var(--ring) / 0.1);
+  }
+
+  [cmdk-input-wrapper]:focus-within .lucide-search {
+    opacity: 0.8;
+    color: hsl(var(--ring));
+  }
+
+  /* Command Palette input wrapper enhanced styling */
+  [cmdk-input-wrapper] {
+    border-bottom: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+  }
+
+  /* Smooth transitions for command palette */
+  [cmdk-root] {
+    background: hsl(var(--popover));
+  }
+
+  [cmdk-item] {
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  [cmdk-item][data-selected='true'] {
+    background: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
 }
 
 /* PWA specific styles */
