@@ -1,9 +1,15 @@
 'use client'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth'
 import type { Note, NoteInsert, NoteUpdate } from '@/lib/supabase/realtime'
+import type {
+  EnhancedSearchResult,
+  SearchOptions,
+  SearchMetadata,
+} from '@/types/search'
 
 /**
  * Hook for note mutations (create, update, delete)
@@ -13,6 +19,11 @@ export function useNotesMutations() {
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const supabase = createClient()
+
+  // Search notes function (not a mutation, but related)
+  // Memoize to prevent infinite loops in useEffect dependencies
+  // Create stable supabase client to prevent dependency issues
+  const stableSupabase = useMemo(() => supabase, [])
 
   const notesQueryKey = ['notes', user?.id]
 
@@ -144,25 +155,214 @@ export function useNotesMutations() {
     },
   })
 
-  // Search notes function (not a mutation, but related)
-  const searchNotes = async (query: string): Promise<Note[]> => {
-    if (!user?.id || !query.trim()) {
-      return []
-    }
+  // Basic ILIKE search (fallback/legacy mode)
+  const searchNotesBasic = useCallback(
+    async (query: string, maxResults: number = 50): Promise<Note[]> => {
+      if (!user?.id || !query.trim()) {
+        return []
+      }
 
-    const { data, error } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('user_id', user.id)
-      .ilike('content', `%${query}%`)
-      .order('updated_at', { ascending: false })
+      const { data, error } = await stableSupabase
+        .from('notes')
+        .select('*')
+        .eq('user_id', user.id)
+        .or(`content.ilike.%${query}%,title.ilike.%${query}%`)
+        .order('updated_at', { ascending: false })
+        .limit(maxResults)
 
-    if (error) {
-      throw new Error(`Failed to search notes: ${error.message}`)
-    }
+      if (error) {
+        throw new Error(`Failed to search notes: ${error.message}`)
+      }
 
-    return data || []
-  }
+      return data || []
+    },
+    [user?.id, stableSupabase]
+  )
+
+  // Enhanced search function with full-text search and highlighting support
+  const searchNotes = useCallback(
+    async (query: string, options: SearchOptions = {}): Promise<Note[]> => {
+      if (!user?.id || !query.trim()) {
+        return []
+      }
+
+      const { maxResults = 50, useEnhancedSearch = true } = options
+      const trimmedQuery = query.trim()
+
+      // For very short queries, use basic search directly to ensure compatibility
+      if (trimmedQuery.length <= 2) {
+        return searchNotesBasic(trimmedQuery, maxResults)
+      }
+
+      if (useEnhancedSearch) {
+        // Use the enhanced PostgreSQL function for full-text search with highlighting
+        const { data, error } = await (stableSupabase as any).rpc(
+          'search_notes_enhanced',
+          {
+            user_uuid: user.id,
+            search_query: trimmedQuery,
+            max_results: maxResults,
+          }
+        )
+
+        if (error) {
+          console.warn(
+            'Enhanced search failed, falling back to basic search:',
+            error.message
+          )
+          // Fallback to basic search if enhanced search fails
+          return searchNotesBasic(trimmedQuery, maxResults)
+        }
+
+        const results = data || []
+
+        // If enhanced search returns no results for short queries, try basic search
+        if (results.length === 0 && trimmedQuery.length <= 4) {
+          const basicResults = await searchNotesBasic(trimmedQuery, maxResults)
+          if (basicResults.length > 0) {
+            return basicResults
+          }
+        }
+
+        return results
+      } else {
+        // Use basic ILIKE search (legacy mode)
+        return searchNotesBasic(trimmedQuery, maxResults)
+      }
+    },
+    [user?.id, stableSupabase, searchNotesBasic]
+  )
+
+  // Enhanced search function that returns results with highlighting
+  const searchNotesEnhanced = useCallback(
+    async (
+      query: string,
+      options: SearchOptions = {}
+    ): Promise<{
+      results: EnhancedSearchResult[]
+      metadata: SearchMetadata
+    }> => {
+      const startTime = performance.now()
+
+      if (!user?.id || !query.trim()) {
+        return {
+          results: [],
+          metadata: {
+            searchTime: 0,
+            totalResults: 0,
+            usedEnhancedSearch: false,
+            query: query.trim(),
+          },
+        }
+      }
+
+      const { maxResults = 50 } = options
+      const trimmedQuery = query.trim()
+
+      // For very short queries (1-2 characters), use basic search directly
+      // PostgreSQL full-text search filters out short terms as stop words
+      if (trimmedQuery.length <= 2) {
+        console.log(
+          `Query "${trimmedQuery}" is too short for full-text search, using basic search`
+        )
+        const basicResults = await searchNotesBasic(trimmedQuery, maxResults)
+        const endTime = performance.now()
+
+        return {
+          results: basicResults.map(note => ({
+            ...note,
+            highlighted_content: note.content,
+            highlighted_title: note.title || null,
+            search_rank: 0.5, // Default rank for basic search
+          })),
+          metadata: {
+            searchTime: Math.round(endTime - startTime),
+            totalResults: basicResults.length,
+            usedEnhancedSearch: false,
+            query: trimmedQuery,
+          },
+        }
+      }
+
+      try {
+        const { data, error } = await (stableSupabase as any).rpc(
+          'search_notes_enhanced',
+          {
+            user_uuid: user.id,
+            search_query: trimmedQuery,
+            max_results: maxResults,
+          }
+        )
+
+        if (error) {
+          throw new Error(`Enhanced search failed: ${error.message}`)
+        }
+
+        const results = data || []
+
+        // If enhanced search returns no results, but basic search might find matches,
+        // fall back to basic search (especially for short queries that might have been filtered)
+        if (results.length === 0 && trimmedQuery.length <= 4) {
+          console.log(
+            `Enhanced search returned no results for "${trimmedQuery}", trying basic search fallback`
+          )
+          const basicResults = await searchNotesBasic(trimmedQuery, maxResults)
+
+          if (basicResults.length > 0) {
+            const endTime = performance.now()
+            return {
+              results: basicResults.map(note => ({
+                ...note,
+                highlighted_content: note.content,
+                highlighted_title: note.title || null,
+                search_rank: 0.5, // Default rank for basic search
+              })),
+              metadata: {
+                searchTime: Math.round(endTime - startTime),
+                totalResults: basicResults.length,
+                usedEnhancedSearch: false,
+                query: trimmedQuery,
+              },
+            }
+          }
+        }
+
+        const endTime = performance.now()
+
+        return {
+          results,
+          metadata: {
+            searchTime: Math.round(endTime - startTime),
+            totalResults: results.length,
+            usedEnhancedSearch: true,
+            query: trimmedQuery,
+          },
+        }
+      } catch (error) {
+        console.error('Enhanced search error:', error)
+
+        // Fallback to basic search
+        const basicResults = await searchNotesBasic(trimmedQuery, maxResults)
+        const endTime = performance.now()
+
+        return {
+          results: basicResults.map(note => ({
+            ...note,
+            highlighted_content: note.content,
+            highlighted_title: note.title || null,
+            search_rank: 0.5, // Default rank for basic search
+          })),
+          metadata: {
+            searchTime: Math.round(endTime - startTime),
+            totalResults: basicResults.length,
+            usedEnhancedSearch: false,
+            query: trimmedQuery,
+          },
+        }
+      }
+    },
+    [user?.id, stableSupabase, searchNotesBasic]
+  )
 
   return {
     // Mutations
@@ -175,8 +375,10 @@ export function useNotesMutations() {
     rescueNote: rescueNoteMutation.mutate,
     rescueNoteAsync: rescueNoteMutation.mutateAsync,
 
-    // Search function
+    // Search functions
     searchNotes,
+    searchNotesEnhanced,
+    searchNotesBasic,
 
     // Loading states
     isCreating: createNoteMutation.isPending,

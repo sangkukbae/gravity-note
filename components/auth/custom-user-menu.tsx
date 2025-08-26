@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/stores/auth'
 import { LogOut, User } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import Image from 'next/image'
 
 export function CustomUserMenu() {
   const { user, signOut } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
+  const [avatarError, setAvatarError] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -34,8 +36,19 @@ export function CustomUserMenu() {
     }
   }, [isOpen])
 
+  // Reset avatar error when user changes
+  useEffect(() => {
+    setAvatarError(false)
+  }, [user?.id])
+
   if (!user) {
     return null
+  }
+
+  const getAvatarUrl = () => {
+    // Check for avatar in user metadata (Google login provides these)
+    const metadata = user.user_metadata
+    return metadata?.picture || metadata?.avatar_url || null
   }
 
   const getInitials = () => {
@@ -51,6 +64,10 @@ export function CustomUserMenu() {
     return user.email?.[0]?.toUpperCase() || 'U'
   }
 
+  const handleAvatarError = () => {
+    setAvatarError(true)
+  }
+
   const handleSignOut = () => {
     setIsOpen(false)
     signOut()
@@ -64,8 +81,18 @@ export function CustomUserMenu() {
         aria-label='User menu'
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary'>
-          {user.user_metadata?.full_name ? (
+        <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary overflow-hidden'>
+          {getAvatarUrl() && !avatarError ? (
+            <Image
+              src={getAvatarUrl()!}
+              alt='User avatar'
+              width={32}
+              height={32}
+              className='h-8 w-8 rounded-full object-cover'
+              onError={handleAvatarError}
+              priority
+            />
+          ) : user.user_metadata?.full_name ? (
             getInitials()
           ) : (
             <User className='h-4 w-4' />
@@ -79,13 +106,33 @@ export function CustomUserMenu() {
           style={{ top: '100%' }}
         >
           <div className='p-3 border-b border-border'>
-            <div className='flex flex-col space-y-1'>
-              <p className='text-sm font-medium leading-none'>{user.email}</p>
-              {user.user_metadata?.full_name && (
-                <p className='text-xs leading-none text-muted-foreground'>
-                  {user.user_metadata.full_name}
+            <div className='flex items-center space-x-3'>
+              <div className='h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary overflow-hidden flex-shrink-0'>
+                {getAvatarUrl() && !avatarError ? (
+                  <Image
+                    src={getAvatarUrl()!}
+                    alt='User avatar'
+                    width={40}
+                    height={40}
+                    className='h-10 w-10 rounded-full object-cover'
+                    onError={handleAvatarError}
+                  />
+                ) : user.user_metadata?.full_name ? (
+                  getInitials()
+                ) : (
+                  <User className='h-5 w-5' />
+                )}
+              </div>
+              <div className='flex flex-col space-y-1 min-w-0 flex-1'>
+                <p className='text-sm font-medium leading-none truncate'>
+                  {user.email}
                 </p>
-              )}
+                {user.user_metadata?.full_name && (
+                  <p className='text-xs leading-none text-muted-foreground truncate'>
+                    {user.user_metadata.full_name}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
