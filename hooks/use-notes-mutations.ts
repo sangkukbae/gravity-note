@@ -280,13 +280,11 @@ export function useNotesMutations() {
         }
 
         if (error) {
-          console.error('🔍 [KOREAN DEBUG] searchNotesBasic - error:', error)
           throw new Error(`Failed to search notes: ${error.message}`)
         }
 
         return data || []
       } catch (err) {
-        console.error('🔍 [KOREAN DEBUG] searchNotesBasic - exception:', err)
         throw err
       }
     },
@@ -505,22 +503,26 @@ export function useNotesMutations() {
       const trimmedQuery = query.trim()
 
       try {
-        // For now, use existing search and add client-side grouping
-        // TODO: Later, this will use the new database function search_notes_enhanced_grouped
-        const searchResult = await searchNotesEnhanced(trimmedQuery, {
-          maxResults,
-        })
-
-        const boundaries = getTemporalBoundaries()
-
-        // Convert regular notes to grouped notes with time classification
-        const groupedResults: GroupedNote[] = searchResult.results.map(
-          note => ({
-            ...note,
-            time_group: classifyNoteByTime(note.updated_at, boundaries),
-            group_rank: 1, // Will be properly calculated by database function later
-          })
+        // Use the new database function for temporal search with proper ranking
+        const { data, error } = await stableSupabase.rpc(
+          'search_notes_enhanced_grouped',
+          {
+            user_uuid: user.id,
+            search_query: trimmedQuery,
+            max_results: maxResults,
+          }
         )
+
+        if (error) {
+          throw new Error(`Failed to search notes: ${error.message}`)
+        }
+
+        // Convert database results to GroupedNote format
+        const groupedResults: GroupedNote[] = (data || []).map((note: any) => ({
+          ...note,
+          // Map database time_group to our TimeGroup enum
+          time_group: note.time_group as TimeGroup,
+        }))
 
         const endTime = performance.now()
 
@@ -635,26 +637,23 @@ export function useNotesMutations() {
       const { maxResults = 200, offset = 0 } = options
 
       try {
-        // For now, get regular notes and group client-side
-        // TODO: Later, this will use the new database function get_notes_grouped_by_time
-        const { data, error } = await stableSupabase
-          .from('notes')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .range(offset, offset + maxResults - 1)
+        // Use the new database function for temporal note retrieval with proper grouping
+        const { data, error } = await stableSupabase.rpc(
+          'get_notes_grouped_by_time',
+          {
+            user_uuid: user.id,
+            max_results: maxResults,
+          }
+        )
 
         if (error) {
           throw new Error(`Failed to fetch notes: ${error.message}`)
         }
 
-        const notes = data || []
-        const boundaries = getTemporalBoundaries()
-
-        // Convert to grouped notes
-        const groupedResults: GroupedNote[] = notes.map(note => ({
+        // Convert database results to GroupedNote format
+        const groupedResults: GroupedNote[] = (data || []).map((note: any) => ({
           ...note,
-          time_group: classifyNoteByTime(note.updated_at, boundaries),
+          time_group: note.time_group as TimeGroup,
           group_rank: 1,
         }))
 

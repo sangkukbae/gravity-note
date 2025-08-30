@@ -1,17 +1,19 @@
 'use client'
 
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import { cn } from '@/lib/utils'
 import { CodeBlock, InlineCode } from '@/components/ui/code-block'
 
-// Dynamic import for markdown-to-jsx to handle potential import issues
-let MarkdownComponent: any = null
-try {
-  const Markdown = require('markdown-to-jsx')
-  MarkdownComponent = Markdown.default || Markdown
-} catch (error) {
-  console.warn('Failed to load markdown-to-jsx:', error)
-}
+// Lazy load markdown-to-jsx for better bundle splitting and error handling
+const LazyMarkdown = lazy(() => 
+  import('markdown-to-jsx').catch(() => ({
+    default: ({ children }: { children: React.ReactNode }) => (
+      <div className="text-sm leading-relaxed text-foreground/90">
+        {children}
+      </div>
+    )
+  }))
+)
 
 interface MarkdownRendererProps {
   content: string
@@ -215,28 +217,25 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
     )
   }
 
-  // Render as markdown with custom overrides for consistent styling
-  // If MarkdownComponent is not available, fallback to plain text
-  if (!MarkdownComponent) {
-    return (
-      <div
-        className={cn('text-sm leading-relaxed text-foreground/90', className)}
-      >
-        {content.split('\n').map((line, index, array) => (
-          <React.Fragment key={index}>
-            {line || '\u00A0'} {/* Non-breaking space for empty lines */}
-            {index < array.length - 1 && <br />}
-          </React.Fragment>
-        ))}
-      </div>
-    )
-  }
-
+  // Render as markdown with custom overrides for consistent styling using Suspense
   return (
     <div
       className={cn('markdown-content prose prose-sm max-w-none', className)}
     >
-      <MarkdownComponent options={markdownOptions}>{content}</MarkdownComponent>
+      <Suspense 
+        fallback={
+          <div className="text-sm leading-relaxed text-foreground/90">
+            {content.split('\n').map((line, index, array) => (
+              <React.Fragment key={index}>
+                {line || '\u00A0'} {/* Non-breaking space for empty lines */}
+                {index < array.length - 1 && <br />}
+              </React.Fragment>
+            ))}
+          </div>
+        }
+      >
+        <LazyMarkdown options={markdownOptions}>{content}</LazyMarkdown>
+      </Suspense>
     </div>
   )
 })
