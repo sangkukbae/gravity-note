@@ -5,7 +5,9 @@ This directory contains SQL migration files for the Gravity Note database.
 ## Migration Files
 
 ### 001_search_notes_enhanced.sql
+
 Creates the `search_notes_enhanced` PostgreSQL function that provides:
+
 - Full-text search capabilities using PostgreSQL's built-in search features
 - Search result highlighting with `<mark>` tags
 - Relevance ranking using `ts_rank_cd`
