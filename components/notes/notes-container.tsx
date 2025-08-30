@@ -17,7 +17,10 @@ import {
   NoteCreationModal,
   type NoteCreationModalRef,
 } from './note-creation-modal'
+import { GroupedNoteList } from './temporal'
 import { cn } from '@/lib/utils'
+import type { GroupedNotesResponse, TimeGroup } from '@/types/temporal'
+import { shouldHandleSearchShortcut } from '@/lib/utils/keyboard'
 // Toast notifications are handled by the parent component
 
 interface NotesContainerProps {
@@ -28,6 +31,10 @@ interface NotesContainerProps {
   className?: string
   searchQuery?: string
   externalSearchControl?: boolean
+  // Temporal grouping props (optional, for backward compatibility)
+  useTemporalGrouping?: boolean
+  groupedNotesData?: GroupedNotesResponse
+  onSearchNotesGrouped?: (query: string) => Promise<GroupedNotesResponse>
 }
 
 export interface NotesContainerRef {
@@ -48,6 +55,10 @@ export const NotesContainer = forwardRef<
       className,
       searchQuery: externalSearchQuery = '',
       externalSearchControl = false,
+      // Temporal grouping props with defaults
+      useTemporalGrouping = false,
+      groupedNotesData,
+      onSearchNotesGrouped,
     },
     ref
   ) => {
@@ -60,6 +71,10 @@ export const NotesContainer = forwardRef<
     const [isSearching, setIsSearching] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [showFAB, setShowFAB] = useState(false)
+    // Temporal grouping state
+    const [collapsedSections, setCollapsedSections] = useState<Set<TimeGroup>>(
+      new Set()
+    )
     const noteModalRef = useRef<NoteCreationModalRef>(null)
     const noteInputRef = useRef<NoteInputRef>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -228,6 +243,47 @@ export const NotesContainer = forwardRef<
       [onSearchNotes, initialNotes, externalSearchControl]
     )
 
+    // Enhanced search handler for temporal grouping
+    const handleSearchGrouped = useCallback(
+      async (query: string) => {
+        if (!externalSearchControl) {
+          setInternalSearchQuery(query)
+        }
+
+        if (!query.trim()) {
+          // For grouped mode, we don't need to reset notes since parent handles data
+          return
+        }
+
+        if (onSearchNotesGrouped) {
+          setIsSearching(true)
+          try {
+            await onSearchNotesGrouped(query)
+            // Parent component handles updating groupedNotesData
+          } catch (error) {
+            console.error('Grouped search failed:', error)
+            // Error toast is handled by the parent component (dashboard)
+          } finally {
+            setIsSearching(false)
+          }
+        }
+      },
+      [onSearchNotesGrouped, externalSearchControl]
+    )
+
+    // Section management for temporal grouping
+    const handleToggleSection = useCallback((timeGroup: TimeGroup) => {
+      setCollapsedSections(prev => {
+        const next = new Set(prev)
+        if (next.has(timeGroup)) {
+          next.delete(timeGroup)
+        } else {
+          next.add(timeGroup)
+        }
+        return next
+      })
+    }, [])
+
     // Handle external search query changes
     useEffect(() => {
       if (externalSearchControl && externalSearchQuery !== undefined) {
@@ -249,8 +305,8 @@ export const NotesContainer = forwardRef<
       if (externalSearchControl) return
 
       const handleKeyDown = (e: KeyboardEvent) => {
-        // Ctrl/Cmd + F to open search
-        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        // Cmd+K / Ctrl+K to open search
+        if (shouldHandleSearchShortcut(e)) {
           e.preventDefault()
           setIsSearchOpen(true)
         }
@@ -291,7 +347,9 @@ export const NotesContainer = forwardRef<
                 <div className='flex justify-end'>
                   <SearchBar
                     value={searchQuery}
-                    onChange={handleSearch}
+                    onChange={
+                      useTemporalGrouping ? handleSearchGrouped : handleSearch
+                    }
                     onClear={handleClearSearch}
                     isOpen={isSearchOpen}
                     onToggle={() => setIsSearchOpen(!isSearchOpen)}
@@ -304,15 +362,29 @@ export const NotesContainer = forwardRef<
 
           {/* Notes Stream */}
           <div className='flex-1'>
-            <NoteList
-              notes={notes}
-              onRescue={handleRescueNote}
-              isLoading={isSearching}
-              isRescuing={isRescuing}
-              {...(typeof rescuingId !== 'undefined' ? { rescuingId } : {})}
-              searchQuery={searchQuery}
-              onSearchChange={handleSearch}
-            />
+            {useTemporalGrouping ? (
+              <GroupedNoteList
+                data={groupedNotesData || { sections: [], totalNotes: 0 }}
+                onRescue={handleRescueNote}
+                isLoading={isSearching}
+                isRescuing={isRescuing}
+                {...(rescuingId ? { rescuingId } : {})}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchGrouped}
+                collapsedSections={collapsedSections}
+                onToggleSection={handleToggleSection}
+              />
+            ) : (
+              <NoteList
+                notes={notes}
+                onRescue={handleRescueNote}
+                isLoading={isSearching}
+                isRescuing={isRescuing}
+                {...(typeof rescuingId !== 'undefined' ? { rescuingId } : {})}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearch}
+              />
+            )}
           </div>
         </div>
 

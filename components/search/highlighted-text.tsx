@@ -63,7 +63,10 @@ export function HighlightedText({
         .replace(/'/g, '&#x27;')
 
       // Then restore only valid <mark> tags with no attributes
-      return escaped.replace(/&lt;mark&gt;(.*?)&lt;\/mark&gt;/g, '<mark>$1</mark>')
+      return escaped.replace(
+        /&lt;mark&gt;(.*?)&lt;\/mark&gt;/g,
+        '<mark>$1</mark>'
+      )
     }
 
     const sanitizedText = sanitizeHTML(processedText)

@@ -1,17 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect, memo } from 'react'
-import { Button } from '@/components/ui/button'
+import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react'
 import { cn } from '@/lib/utils'
-import {
-  ArrowUpIcon,
-  LoaderIcon,
-  ClockIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from 'lucide-react'
+import { ClockIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { EnhancedTextRenderer } from './enhanced-text-renderer'
+import { SmartTextRenderer } from './smart-text-renderer'
+import { NoteActionGroup } from './note-action-group'
 
 export interface Note {
   id: string
@@ -92,38 +86,36 @@ export const NoteItem = memo(function NoteItem({
     }
   }, [isExpanded, note.id, onHeightChange])
 
-  const handleToggleExpand = () => {
+  // Memoize handlers to prevent unnecessary re-renders of child components
+  const handleToggleExpand = useCallback(() => {
     setIsExpanded(!isExpanded)
-  }
+  }, [isExpanded])
 
-  const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      handleToggleExpand()
-    }
-  }
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        handleToggleExpand()
+      }
+    },
+    [handleToggleExpand]
+  )
 
-  const handleRescue = async () => {
-    if (!onRescue || isRescuing) return
-
+  // Memoize expensive calculations
+  const formattedTimeAgo = useMemo(() => {
     try {
-      await onRescue(note.id)
-    } catch (error) {
-      console.error('Failed to rescue note:', error)
-    }
-  }
-
-  const formatTimeAgo = (dateString: string) => {
-    try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true })
+      return formatDistanceToNow(new Date(note.created_at), { addSuffix: true })
     } catch (error) {
       return 'some time ago'
     }
-  }
+  }, [note.created_at])
 
-  const isRecentlyRescued =
-    note.is_rescued &&
-    new Date(note.updated_at).getTime() > new Date(note.created_at).getTime()
+  const isRecentlyRescued = useMemo(
+    () =>
+      note.is_rescued &&
+      new Date(note.updated_at).getTime() > new Date(note.created_at).getTime(),
+    [note.is_rescued, note.updated_at, note.created_at]
+  )
 
   return (
     <div ref={contentRef} className='relative'>
@@ -157,7 +149,7 @@ export const NoteItem = memo(function NoteItem({
             title={new Date(note.created_at).toLocaleString()}
             className='hover:text-muted-foreground transition-colors duration-150'
           >
-            {formatTimeAgo(note.created_at)}
+            {formattedTimeAgo}
           </time>
           {isRecentlyRescued && (
             <>
@@ -183,7 +175,7 @@ export const NoteItem = memo(function NoteItem({
                   shouldShowExpandButton && !isExpanded ? 'inline' : 'block'
                 }
               >
-                <EnhancedTextRenderer
+                <SmartTextRenderer
                   content={note.content}
                   isExpanded={isExpanded}
                   maxLength={CHAR_LIMIT}
@@ -246,30 +238,15 @@ export const NoteItem = memo(function NoteItem({
           </div>
         </div>
 
-        {/* Action Zone - Left aligned rescue button, always visible */}
-        {showRescueButton && onRescue && (
-          <div className='flex items-center'>
-            <Button
-              onClick={handleRescue}
-              disabled={isRescuing}
-              variant='ghost'
-              size='sm'
-              className={cn(
-                'h-6 w-6 p-0',
-                'hover:bg-muted hover:text-foreground',
-                'transition-colors duration-150 rounded-md',
-                'text-muted-foreground/60'
-              )}
-              aria-label='Rescue note to top'
-              title='Bring this note back to the top'
-            >
-              {isRescuing ? (
-                <LoaderIcon className='h-3 w-3 animate-spin' />
-              ) : (
-                <ArrowUpIcon className='h-3 w-3' />
-              )}
-            </Button>
-          </div>
+        {/* Action Zone - Enhanced button group with rescue, copy, and share */}
+        {showRescueButton && (
+          <NoteActionGroup
+            note={note}
+            {...(onRescue && { onRescue })}
+            isVisible={true}
+            isHovered={isHovered}
+            rescueState={{ loading: isRescuing, success: false }}
+          />
         )}
       </div>
 

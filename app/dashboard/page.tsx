@@ -3,20 +3,22 @@
 import { ProtectedRoute } from '@/components/auth/protected-route'
 import { CustomUserMenu } from '@/components/auth/custom-user-menu'
 import { NotesContainer, type NotesContainerRef } from '@/components/notes'
-import { HeaderSearch } from '@/components/notes/header-search'
-import {
-  CommandPalette,
-  useCommandPalette,
-} from '@/components/search/command-palette'
+import { useCommandPalette } from '@/components/search/command-palette'
+import { TemporalCommandPalette } from '@/components/search/temporal-command-palette'
 import { SearchErrorWrapper } from '@/components/search/error-boundary'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
-import { useCallback, useState, useEffect, useRef, useMemo } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useNotesRealtime } from '@/hooks/use-notes-realtime'
 import { useNotesMutations } from '@/hooks/use-notes-mutations'
 import { toast } from 'sonner'
 import { SearchIcon } from 'lucide-react'
 import type { Note } from '@/lib/supabase/realtime'
 import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
+import type { GroupedNotesResponse } from '@/types/temporal'
+import {
+  getSearchShortcutText,
+  getSearchShortcutTooltip,
+} from '@/lib/utils/keyboard'
 
 export default function DashboardPage() {
   const notesContainerRef = useRef<NotesContainerRef>(null)
@@ -51,6 +53,8 @@ export default function DashboardPage() {
     createNoteAsync,
     rescueNoteAsync,
     searchNotesEnhanced,
+    searchNotesGrouped,
+    getNotesGrouped,
     isCreating,
     isRescuing,
     createError,
@@ -93,6 +97,38 @@ export default function DashboardPage() {
     },
     []
   )
+
+  // Handle grouped search for temporal grouping
+  const handleGroupedSearch = useCallback(
+    async (query: string): Promise<GroupedNotesResponse> => {
+      try {
+        // Perform grouped search
+        const groupedData = await searchNotesGrouped(query)
+        return groupedData
+      } catch (error) {
+        console.error('Grouped search failed:', error)
+        toast.error('Search failed. Please try again.')
+        // Return empty data on error
+        return { sections: [], totalNotes: 0 }
+      }
+    },
+    [searchNotesGrouped]
+  )
+
+  // Handle loading all notes grouped by time period
+  const handleGetNotesGrouped =
+    useCallback(async (): Promise<GroupedNotesResponse> => {
+      try {
+        // Load all notes grouped by time period
+        const groupedData = await getNotesGrouped()
+        return groupedData
+      } catch (error) {
+        console.error('Failed to load grouped notes:', error)
+        toast.error('Failed to load notes. Please try again.')
+        // Return empty data on error
+        return { sections: [], totalNotes: 0 }
+      }
+    }, [getNotesGrouped])
 
   // Handle note creation with error handling
   const handleCreateNote = useCallback(
@@ -232,16 +268,13 @@ export default function DashboardPage() {
                 <button
                   onClick={openCommandPalette}
                   className='flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground rounded-md border border-border/50 hover:bg-accent/50 hover:text-foreground transition-colors'
-                  title='Search notes (Cmd+F)'
+                  title={`Search notes (${getSearchShortcutTooltip()})`}
                 >
                   <SearchIcon className='h-4 w-4' />
                   <span className='hidden sm:inline'>Search notes...</span>
                   <div className='hidden sm:flex items-center gap-1 ml-2 text-xs'>
                     <kbd className='px-1.5 py-0.5 bg-muted rounded text-[10px]'>
-                      ⌘
-                    </kbd>
-                    <kbd className='px-1.5 py-0.5 bg-muted rounded text-[10px]'>
-                      F
+                      {getSearchShortcutText()}
                     </kbd>
                   </div>
                 </button>
@@ -266,10 +299,12 @@ export default function DashboardPage() {
 
         {/* Command Palette Modal */}
         <SearchErrorWrapper>
-          <CommandPalette
+          <TemporalCommandPalette
             open={isCommandPaletteOpen}
             onOpenChange={setCommandPaletteOpen}
             onSearch={handleCommandPaletteSearch}
+            onSearchGrouped={handleGroupedSearch}
+            onGetNotesGrouped={handleGetNotesGrouped}
             onResultSelect={handleSearchResultSelect}
           />
         </SearchErrorWrapper>

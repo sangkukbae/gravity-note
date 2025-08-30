@@ -2,27 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Shadcn/ui CSS Variables */
+/* Shadcn/ui CSS Variables - Enhanced Light Theme */
 @layer base {
   :root {
+    /* Base colors remain pure for maximum contrast */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
+
+    /* Card colors with subtle warm tone for better visual separation */
+    --card: 0 0% 99.5%;
     --card-foreground: 222.2 84% 4.9%;
+
+    /* Popover colors */
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
+
+    /* Primary colors remain unchanged for brand consistency */
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
+
+    /* Enhanced secondary colors with stronger definition */
+    --secondary: 210 40% 93%;
     --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
+
+    /* Improved muted colors for better hierarchy */
+    --muted: 210 40% 94%;
+    --muted-foreground: 215.4 16.3% 42%;
+
+    /* Enhanced accent with better contrast */
+    --accent: 210 40% 93%;
     --accent-foreground: 222.2 84% 4.9%;
+
+    /* Destructive colors remain unchanged for safety */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+
+    /* Strengthened border colors for better element definition */
+    --border: 214.3 31.8% 88%;
+    --input: 214.3 31.8% 88%;
+
+    /* Ring color remains for focus consistency */
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
   }
@@ -74,9 +93,10 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Focus styles for accessibility */
+  /* Enhanced focus styles for accessibility - Light Theme Strengthened */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-primary-500;
+    @apply outline-2 outline-offset-2 outline-primary-600;
+    outline-style: solid;
   }
 
   /* Selection colors */
@@ -161,16 +181,20 @@
   }
 
   .modern-hover:hover {
-    background-color: hsl(var(--muted) / 0.3);
+    background-color: hsl(var(--muted) / 0.5);
   }
 
-  /* Enhanced shadow utilities for better card separation */
+  /* Enhanced shadow utilities for better card separation - Light Theme Improved */
   .shadow-card {
-    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 3px 12px -2px rgba(0, 0, 0, 0.12),
+      0 1px 4px -1px rgba(0, 0, 0, 0.06);
   }
 
   .shadow-card-hover {
-    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
+    box-shadow:
+      0 10px 32px -4px rgba(0, 0, 0, 0.18),
+      0 4px 16px -2px rgba(0, 0, 0, 0.08);
   }
 
   .dark .shadow-card {
@@ -315,8 +339,9 @@
     @apply btn bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700;
   }
 
+  /* Enhanced button styles for better light theme visibility */
   .btn-secondary {
-    @apply btn bg-neutral-100 text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300;
+    @apply btn bg-neutral-50 text-neutral-900 border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 active:bg-neutral-200;
   }
 
   .dark .btn-secondary {
@@ -324,25 +349,26 @@
   }
 
   .btn-ghost {
-    @apply btn text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900;
+    @apply btn text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900;
   }
 
   .dark .btn-ghost {
     @apply text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100;
   }
 
-  /* Input styles */
+  /* Enhanced input styles for better light theme definition */
   .input {
-    @apply flex w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply flex w-full rounded-md border-2 border-neutral-300 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
   }
 
   .dark .input {
     @apply border-neutral-700 bg-neutral-900 ring-offset-neutral-900 placeholder:text-neutral-400;
   }
 
-  /* Card styles */
+  /* Enhanced card styles for better light theme separation */
   .card {
-    @apply rounded-lg border border-neutral-200 bg-white shadow-sm;
+    @apply rounded-lg border border-neutral-300/70 bg-white shadow-card;
   }
 
   .dark .card {
@@ -358,9 +384,9 @@
     @apply text-neutral-100 placeholder:text-neutral-400;
   }
 
-  /* Enhanced typography for improved readability */
+  /* Enhanced typography for improved readability - Light Theme Strengthened */
   .prose-neutral {
-    color: theme('colors.neutral.700');
+    color: theme('colors.neutral.800');
     line-height: 1.7;
     font-feature-settings:
       'kern' 1,
@@ -372,17 +398,21 @@
     color: theme('colors.neutral.300');
   }
 
-  /* Enhanced note card styles for superior visual separation */
+  /* Enhanced note card styles for superior visual separation - Light Theme Improved */
   .note-card-enhanced {
-    @apply bg-white/95 border border-neutral-200/70 rounded-xl;
-    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+    @apply bg-white border border-neutral-300/80 rounded-xl;
+    box-shadow:
+      0 3px 12px -2px rgba(0, 0, 0, 0.12),
+      0 1px 4px -1px rgba(0, 0, 0, 0.06);
     backdrop-filter: blur(1px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .note-card-enhanced:hover {
-    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
-    @apply border-neutral-300/80 bg-white;
+    box-shadow:
+      0 10px 32px -4px rgba(0, 0, 0, 0.18),
+      0 4px 16px -2px rgba(0, 0, 0, 0.08);
+    @apply border-neutral-400/70 bg-neutral-50/50;
     transform: translateY(-2px);
   }
 
@@ -396,9 +426,13 @@
     box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
   }
 
-  /* Enhanced card separation background */
+  /* Enhanced card separation background with subtle gradient - Light Theme Improved */
   .note-list-background {
-    @apply bg-neutral-50/30;
+    background: linear-gradient(
+      180deg,
+      rgb(249, 250, 251) 0%,
+      rgb(243, 244, 246) 100%
+    );
   }
 
   .dark .note-list-background {
@@ -436,13 +470,23 @@
     @apply mb-3 last:mb-0;
   }
 
+  /* Enhanced heading hierarchy for better light theme readability */
   .note-content h1,
   .note-content h2,
   .note-content h3,
   .note-content h4,
   .note-content h5,
   .note-content h6 {
-    @apply font-semibold leading-tight mb-2 mt-3 first:mt-0;
+    @apply font-semibold leading-tight mb-2 mt-3 first:mt-0 text-neutral-900;
+  }
+
+  .dark .note-content h1,
+  .dark .note-content h2,
+  .dark .note-content h3,
+  .dark .note-content h4,
+  .dark .note-content h5,
+  .dark .note-content h6 {
+    @apply text-neutral-100;
   }
 
   .note-content ul,
@@ -484,8 +528,9 @@
     animation-delay: calc(var(--delay) * 0.2s);
   }
 
+  /* Enhanced loading skeleton for better light theme visibility */
   .loading-skeleton {
-    @apply animate-pulse bg-neutral-200;
+    @apply animate-pulse bg-neutral-300;
   }
 
   .dark .loading-skeleton {
@@ -527,6 +572,83 @@
   [cmdk-item][data-selected='true'] {
     background: hsl(var(--accent));
     color: hsl(var(--accent-foreground));
+  }
+
+  /* Enhanced Code Block Styles for GitHub-style appearance */
+  .code-block-container {
+    @apply relative my-4;
+  }
+
+  .code-block-container .copy-button {
+    @apply absolute right-2 top-2 z-10 opacity-0 transition-opacity;
+  }
+
+  .code-block-container:hover .copy-button {
+    @apply opacity-100;
+  }
+
+  .code-block-container pre {
+    @apply bg-neutral-100 border border-neutral-300/60 rounded-lg overflow-x-auto;
+    font-family:
+      'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro',
+      monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.06);
+  }
+
+  .code-block-container code {
+    @apply text-foreground bg-transparent p-0 border-0;
+    font-family: inherit;
+  }
+
+  /* Proper theme switching for dual-theme Shiki output */
+  :root {
+    --shiki-light-display: block;
+    --shiki-dark-display: none;
+  }
+
+  .dark {
+    --shiki-light-display: none;
+    --shiki-dark-display: block;
+  }
+
+  /* Ensure Shiki themes display correctly */
+  .shiki-light {
+    display: var(--shiki-light-display);
+  }
+
+  .shiki-dark {
+    display: var(--shiki-dark-display);
+  }
+
+  /* Override Shiki's default background to maintain transparency */
+  .shiki-container .shiki pre {
+    background-color: transparent !important;
+  }
+
+  /* Inline code styling to match GitHub - Light Theme Enhanced */
+  .markdown-content code:not(pre code) {
+    @apply px-1.5 py-0.5 text-sm bg-neutral-100 border border-neutral-300/60 rounded font-mono;
+    font-size: 0.875em;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  /* Enhanced scrollbar for code blocks */
+  .code-block-container pre::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .code-block-container pre::-webkit-scrollbar-track {
+    @apply bg-muted/30 rounded;
+  }
+
+  .code-block-container pre::-webkit-scrollbar-thumb {
+    @apply bg-border rounded;
+  }
+
+  .code-block-container pre::-webkit-scrollbar-thumb:hover {
+    @apply bg-border/80;
   }
 }
 
