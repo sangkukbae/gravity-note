@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { SearchIcon, XIcon } from 'lucide-react'
 import { SearchErrorWrapper } from '@/components/search/error-boundary'
+import {
+  shouldHandleSearchShortcut,
+  getSearchShortcutTooltip,
+} from '@/lib/utils/keyboard'
 
 interface HeaderSearchProps {
   value: string
@@ -57,13 +61,7 @@ export function HeaderSearch({
 
   // Optimize keyboard handler with stable reference
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
-    // Only handle Cmd+F or Ctrl+F, ensure we're not interfering with other shortcuts
-    if (
-      (e.ctrlKey || e.metaKey) &&
-      e.key.toLowerCase() === 'f' &&
-      !e.shiftKey &&
-      !e.altKey
-    ) {
+    if (shouldHandleSearchShortcut(e)) {
       e.preventDefault()
       setIsOpen(true)
       // Focus the input after opening
@@ -75,7 +73,7 @@ export function HeaderSearch({
     }
   }, [])
 
-  // Global keyboard shortcut for Ctrl/Cmd + F
+  // Global keyboard shortcut for Cmd+K / Ctrl+K
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalKeyDown)
     return () => document.removeEventListener('keydown', handleGlobalKeyDown)
@@ -108,7 +106,7 @@ export function HeaderSearch({
   }, [isOpen])
 
   return (
-    <SearchErrorWrapper className="relative flex items-center">
+    <SearchErrorWrapper className='relative flex items-center'>
       <div className={cn('relative flex items-center', className)}>
         {!isOpen ? (
           // Search toggle button
@@ -118,7 +116,7 @@ export function HeaderSearch({
             size='sm'
             className='h-8 w-8 p-0 rounded-full hover:bg-accent/50 transition-colors'
             aria-label='Open search'
-            title='Search notes (Ctrl+F)'
+            title={`Search notes (${getSearchShortcutTooltip()})`}
           >
             <SearchIcon className='h-4 w-4' />
           </Button>
@@ -138,33 +136,33 @@ export function HeaderSearch({
                   // Responsive width constraints: narrower on mobile, optimal on desktop
                   'w-64 max-w-[min(400px,calc(100vw-8rem))] pl-10 pr-10 h-8',
                   'focus-visible:ring-2 focus-visible:ring-primary',
-                'border-border/50'
+                  'border-border/50'
+                )}
+                aria-label='Search notes'
+              />
+              {localValue && (
+                <Button
+                  onClick={handleClear}
+                  variant='ghost'
+                  size='sm'
+                  className='absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0'
+                  aria-label='Clear search'
+                >
+                  <XIcon className='h-3 w-3' />
+                </Button>
               )}
-              aria-label='Search notes'
-            />
-            {localValue && (
-              <Button
-                onClick={handleClear}
-                variant='ghost'
-                size='sm'
-                className='absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0'
-                aria-label='Clear search'
-              >
-                <XIcon className='h-3 w-3' />
-              </Button>
-            )}
+            </div>
+            <Button
+              onClick={toggleSearch}
+              variant='ghost'
+              size='sm'
+              className='h-8 w-8 p-0'
+              aria-label='Close search'
+            >
+              <XIcon className='h-4 w-4' />
+            </Button>
           </div>
-          <Button
-            onClick={toggleSearch}
-            variant='ghost'
-            size='sm'
-            className='h-8 w-8 p-0'
-            aria-label='Close search'
-          >
-            <XIcon className='h-4 w-4' />
-          </Button>
-        </div>
-      )}
+        )}
       </div>
     </SearchErrorWrapper>
   )

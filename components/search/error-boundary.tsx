@@ -5,8 +5,8 @@ import { AlertTriangle } from 'lucide-react'
 
 interface ErrorBoundaryState {
   hasError: boolean
-  error?: Error
-  errorInfo?: React.ErrorInfo
+  error: Error | null
+  errorInfo: React.ErrorInfo | null
 }
 
 interface SearchErrorBoundaryProps {
@@ -26,17 +26,18 @@ export class SearchErrorBoundary extends Component<
 > {
   constructor(props: SearchErrorBoundaryProps) {
     super(props)
-    this.state = { hasError: false }
+    this.state = { hasError: false, error: null, errorInfo: null }
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return {
       hasError: true,
       error,
+      errorInfo: null,
     }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     this.setState({
       error,
       errorInfo,
@@ -50,10 +51,10 @@ export class SearchErrorBoundary extends Component<
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
+    this.setState({ hasError: false, error: null, errorInfo: null })
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       // Use custom fallback if provided
       if (this.props.fallback) {
@@ -63,19 +64,20 @@ export class SearchErrorBoundary extends Component<
       // Default error UI
       return (
         <div className={`p-4 text-center ${this.props.className || ''}`}>
-          <div className="flex flex-col items-center gap-3">
-            <AlertTriangle className="h-8 w-8 text-red-500" />
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          <div className='flex flex-col items-center gap-3'>
+            <AlertTriangle className='h-8 w-8 text-red-500' />
+            <div className='space-y-2'>
+              <h3 className='text-sm font-medium text-gray-900 dark:text-gray-100'>
                 Search Temporarily Unavailable
               </h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                The search feature encountered an error. You can try again or use the header search as an alternative.
+              <p className='text-xs text-gray-600 dark:text-gray-400'>
+                The search feature encountered an error. You can try again or
+                use the header search as an alternative.
               </p>
             </div>
             <button
               onClick={this.handleRetry}
-              className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-md transition-colors"
+              className='px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-md transition-colors'
             >
               Try Again
             </button>
@@ -110,7 +112,7 @@ export function withSearchErrorBoundary<T extends object>(
  */
 export function SearchErrorWrapper({
   children,
-  className,
+  className = '',
 }: {
   children: ReactNode
   className?: string
