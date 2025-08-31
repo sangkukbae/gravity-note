@@ -1,22 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { Badge } from '@/components/ui/badge'
 import {
   CommandDialog,
-  CommandInput,
-  CommandList,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
+  CommandList,
   CommandSeparator,
 } from '@/components/ui/command'
-import { Badge } from '@/components/ui/badge'
-import { HighlightedText, countHighlights } from './highlighted-text'
-import { cn } from '@/lib/utils'
-import { SearchIcon, FileTextIcon } from 'lucide-react'
-import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
 import type { Note } from '@/lib/supabase/realtime'
 import { shouldHandleSearchShortcut } from '@/lib/utils/keyboard'
+import { safeDate } from '@/lib/utils/note-transformers'
+import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
+import { FileTextIcon, SearchIcon } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { HighlightedText, countHighlights } from './highlighted-text'
 
 interface CommandPaletteProps {
   /** Control the modal open state */
@@ -240,7 +240,7 @@ export function CommandPalette({
                       {/* Metadata */}
                       <div className='flex items-center gap-2 text-xs text-muted-foreground'>
                         <span>
-                          {new Date(result.updated_at).toLocaleDateString()}
+                          {safeDate(result.updated_at).toLocaleDateString()}
                         </span>
                         {countHighlights(result.highlighted_content) > 0 && (
                           <Badge variant='secondary' className='text-xs'>

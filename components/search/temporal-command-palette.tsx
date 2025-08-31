@@ -1,38 +1,60 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { Badge } from '@/components/ui/badge'
 import {
   CommandDialog,
-  CommandInput,
-  CommandList,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
+  CommandList,
   CommandSeparator,
 } from '@/components/ui/command'
-import { Badge } from '@/components/ui/badge'
-import { HighlightedText, countHighlights } from './highlighted-text'
-import { SearchIcon, FileTextIcon } from 'lucide-react'
-import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
 import type { Note } from '@/lib/supabase/realtime'
-import type { GroupedNotesResponse, GroupedNote } from '@/types/temporal'
+import { safeDate } from '@/lib/utils/note-transformers'
+import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
+import type { GroupedNote, GroupedNotesResponse } from '@/types/temporal'
+import type {
+  UnifiedNoteResult,
+  UnifiedNotesOptions,
+  UnifiedNotesResponse,
+} from '@/types/unified'
+import { FileTextIcon } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { HighlightedText } from './highlighted-text'
 
 interface TemporalCommandPaletteProps {
   /** Control the modal open state */
   open: boolean
   /** Callback when modal open state changes */
   onOpenChange: (open: boolean) => void
+
+  // New unified approach (preferred)
+  /** Unified search function that handles both search and browse */
+  onUnifiedSearch?: (
+    query: string,
+    options?: UnifiedNotesOptions
+  ) => Promise<UnifiedNotesResponse>
+  /** Unified browse function that gets all notes grouped by time */
+  onUnifiedBrowse?: (
+    options?: UnifiedNotesOptions
+  ) => Promise<UnifiedNotesResponse>
+
+  // Legacy approach (for backward compatibility)
   /** Regular search function that returns enhanced results */
-  onSearch: (query: string) => Promise<{
+  onSearch?: (query: string) => Promise<{
     results: EnhancedSearchResult[]
     metadata: SearchMetadata
   }>
   /** Grouped search function that returns temporal sections */
-  onSearchGrouped: (query: string) => Promise<GroupedNotesResponse>
+  onSearchGrouped?: (query: string) => Promise<GroupedNotesResponse>
   /** Function to get all notes grouped by time (for initial load) */
   onGetNotesGrouped?: () => Promise<GroupedNotesResponse>
+
   /** Callback when a search result is selected */
-  onResultSelect?: (result: EnhancedSearchResult | Note) => void
+  onResultSelect?: (
+    result: EnhancedSearchResult | Note | UnifiedNoteResult
+  ) => void
   /** Whether search is currently in progress */
   isSearching?: boolean
   /** CSS class name for the modal */
@@ -48,6 +70,8 @@ interface TemporalCommandPaletteProps {
 export function TemporalCommandPalette({
   open,
   onOpenChange,
+  onUnifiedSearch,
+  onUnifiedBrowse,
   onSearch,
   onSearchGrouped,
   onGetNotesGrouped,
@@ -55,13 +79,18 @@ export function TemporalCommandPalette({
   isSearching = false,
   className,
 }: TemporalCommandPaletteProps) {
-  // Simplified state - only 3 variables
+  // State - support both unified and legacy response formats
   const [query, setQuery] = useState('')
-  const [data, setData] = useState<GroupedNotesResponse>({
-    sections: [],
-    totalNotes: 0,
-  })
+  const [data, setData] = useState<UnifiedNotesResponse | GroupedNotesResponse>(
+    {
+      sections: [],
+      totalNotes: 0,
+    }
+  )
   const [isLoading, setIsLoading] = useState(false)
+
+  // Determine which approach to use (coerced to boolean to avoid function identity churn)
+  const useUnifiedApproach = Boolean(onUnifiedSearch && onUnifiedBrowse)
 
   // Derived state - no flags needed
   const isSearchMode = query.trim().length > 0
@@ -71,7 +100,29 @@ export function TemporalCommandPalette({
   const MAX_TITLE_LENGTH = 80
   const MAX_CONTENT_LENGTH = 120
 
-  // Single data fetching effect - handles both browse and search
+  // Stabilize handler identities via refs to prevent effect dependency churn
+  const onUnifiedSearchRef = useRef(onUnifiedSearch)
+  const onUnifiedBrowseRef = useRef(onUnifiedBrowse)
+  const onSearchGroupedRef = useRef(onSearchGrouped)
+  const onGetNotesGroupedRef = useRef(onGetNotesGrouped)
+
+  useEffect(() => {
+    onUnifiedSearchRef.current = onUnifiedSearch
+  }, [onUnifiedSearch])
+
+  useEffect(() => {
+    onUnifiedBrowseRef.current = onUnifiedBrowse
+  }, [onUnifiedBrowse])
+
+  useEffect(() => {
+    onSearchGroupedRef.current = onSearchGrouped
+  }, [onSearchGrouped])
+
+  useEffect(() => {
+    onGetNotesGroupedRef.current = onGetNotesGrouped
+  }, [onGetNotesGrouped])
+
+  // Single data fetching effect - handles both browse and search with unified or legacy approach
   useEffect(() => {
     let cancelled = false
 
@@ -80,18 +131,45 @@ export function TemporalCommandPalette({
 
       setIsLoading(true)
       try {
-        if (isSearchMode) {
-          // Search mode
-          const result = await onSearchGrouped(query.trim())
-          if (!cancelled) {
-            setData(result)
-          }
-        } else {
-          // Browse mode - load all notes
-          if (onGetNotesGrouped) {
-            const result = await onGetNotesGrouped()
+        if (useUnifiedApproach) {
+          // New unified approach
+          if (isSearchMode) {
+            // Search mode
+            const result = await onUnifiedSearchRef.current!(query.trim(), {
+              maxResults: 200,
+              groupByTime: true,
+              useEnhancedSearch: true,
+            })
             if (!cancelled) {
               setData(result)
+            }
+          } else {
+            // Browse mode
+            const result = await onUnifiedBrowseRef.current!({
+              maxResults: 200,
+              groupByTime: true,
+            })
+            if (!cancelled) {
+              setData(result)
+            }
+          }
+        } else {
+          // Legacy approach
+          if (isSearchMode) {
+            // Search mode
+            if (onSearchGroupedRef.current) {
+              const result = await onSearchGroupedRef.current(query.trim())
+              if (!cancelled) {
+                setData(result)
+              }
+            }
+          } else {
+            // Browse mode - load all notes
+            if (onGetNotesGroupedRef.current) {
+              const result = await onGetNotesGroupedRef.current()
+              if (!cancelled) {
+                setData(result)
+              }
             }
           }
         }
@@ -121,7 +199,7 @@ export function TemporalCommandPalette({
     return () => {
       cancelled = true
     }
-  }, [query, isSearchMode, onSearchGrouped, onGetNotesGrouped])
+  }, [query, isSearchMode, useUnifiedApproach])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -132,9 +210,9 @@ export function TemporalCommandPalette({
     }
   }, [open])
 
-  // Handle result selection - simplified without type conversions
+  // Handle result selection - support both unified and legacy result types
   const handleResultSelect = useCallback(
-    (result: GroupedNote) => {
+    (result: UnifiedNoteResult | GroupedNote) => {
       if (onResultSelect) {
         // Pass the note directly - let the consumer handle any needed conversions
         onResultSelect(result)
@@ -204,6 +282,17 @@ export function TemporalCommandPalette({
                     {data.sections.length} time period
                     {data.sections.length !== 1 ? 's' : ''}
                   </Badge>
+                  {useUnifiedApproach && 'mode' in data.metadata && (
+                    <Badge variant='outline' className='text-xs'>
+                      {data.metadata.usedEnhancedSearch ? 'Enhanced' : 'Basic'}{' '}
+                      Search
+                    </Badge>
+                  )}
+                  {useUnifiedApproach && 'searchTime' in data.metadata && (
+                    <span className='text-xs opacity-75'>
+                      {data.metadata.searchTime}ms
+                    </span>
+                  )}
                 </div>
               </div>
             </CommandGroup>
@@ -275,7 +364,7 @@ export function TemporalCommandPalette({
                           {/* Metadata */}
                           <div className='flex items-center gap-2 text-xs text-muted-foreground'>
                             <span>
-                              {new Date(result.updated_at).toLocaleDateString(
+                              {safeDate(result.updated_at).toLocaleDateString(
                                 'en-US',
                                 {
                                   month: 'short',
