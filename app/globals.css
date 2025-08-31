@@ -205,14 +205,10 @@
     box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
   }
 
-  /* Animation utilities */
-  .animate-in {
-    animation: fadeIn 0.3s ease-in-out;
-  }
-
-  .animate-out {
-    animation: fadeOut 0.3s ease-in-out;
-  }
+  /* Note: Removed custom `.animate-in` / `.animate-out` utilities to avoid
+     conflicts with tailwindcss-animate plugin classes used by Radix UI
+     components (e.g., Dialog). The plugin-provided utilities should be used
+     instead to preserve transform-based centering and transitions. */
 
   /* Modern subtle animation classes */
   .animate-modern-fade-in {
