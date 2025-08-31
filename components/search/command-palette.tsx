@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { SearchIcon, FileTextIcon } from 'lucide-react'
 import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
 import type { Note } from '@/lib/supabase/realtime'
+import { shouldHandleSearchShortcut } from '@/lib/utils/keyboard'
 
 interface CommandPaletteProps {
   /** Control the modal open state */
@@ -280,15 +281,10 @@ export function CommandPalette({
 export function useCommandPalette() {
   const [open, setOpen] = useState(false)
 
-  // Handle Cmd+F / Ctrl+F keyboard shortcut
+  // Handle Cmd+K / Ctrl+K keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.ctrlKey || e.metaKey) &&
-        e.key.toLowerCase() === 'f' &&
-        !e.shiftKey &&
-        !e.altKey
-      ) {
+      if (shouldHandleSearchShortcut(e)) {
         e.preventDefault()
         setOpen(true)
       }

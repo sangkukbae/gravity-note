@@ -100,7 +100,7 @@ export function EmptyState({
         <div className='mt-8 text-xs text-muted-foreground/50 space-y-1'>
           <p>• No folders, no categories — just pure capture</p>
           <p>• Important thoughts naturally rise to the top</p>
-          <p>• Search everything with Ctrl+F</p>
+          <p>• Search everything with /</p>
         </div>
       )}
     </div>

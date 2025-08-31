@@ -10,6 +10,15 @@ import type {
   SearchOptions,
   SearchMetadata,
 } from '@/types/search'
+import type {
+  GroupedNote,
+  NoteTimeSection,
+  GroupedNotesResponse,
+  TimeGroup,
+  TemporalBoundaries,
+  GroupedSearchMetadata,
+  TemporalGroupingOptions,
+} from '@/types/temporal'
 
 /**
  * Hook for note mutations (create, update, delete)
@@ -26,6 +35,93 @@ export function useNotesMutations() {
   const stableSupabase = useMemo(() => supabase, [])
 
   const notesQueryKey = ['notes', user?.id]
+
+  // Temporal grouping utility functions
+  const getTemporalBoundaries = useCallback((): TemporalBoundaries => {
+    const now = new Date()
+
+    // Yesterday start (beginning of yesterday)
+    const yesterday = new Date(now)
+    yesterday.setDate(now.getDate() - 1)
+    yesterday.setHours(0, 0, 0, 0)
+
+    // Last week start (7 days ago)
+    const lastWeek = new Date(now)
+    lastWeek.setDate(now.getDate() - 7)
+    lastWeek.setHours(0, 0, 0, 0)
+
+    // Last month start (30 days ago)
+    const lastMonth = new Date(now)
+    lastMonth.setDate(now.getDate() - 30)
+    lastMonth.setHours(0, 0, 0, 0)
+
+    return { yesterday, lastWeek, lastMonth }
+  }, [])
+
+  const classifyNoteByTime = useCallback(
+    (updatedAt: string, boundaries: TemporalBoundaries): TimeGroup => {
+      const noteDate = new Date(updatedAt)
+
+      if (noteDate >= boundaries.yesterday) return 'yesterday'
+      if (noteDate >= boundaries.lastWeek) return 'last_week'
+      if (noteDate >= boundaries.lastMonth) return 'last_month'
+      return 'earlier'
+    },
+    []
+  )
+
+  const groupNotesByTime = useCallback(
+    (notes: GroupedNote[]): NoteTimeSection[] => {
+      // Initialize groups
+      const groups: Record<TimeGroup, GroupedNote[]> = {
+        yesterday: [],
+        last_week: [],
+        last_month: [],
+        earlier: [],
+      }
+
+      // Display names for each time group
+      const displayNames: Record<TimeGroup, string> = {
+        yesterday: 'Yesterday',
+        last_week: 'Last Week',
+        last_month: 'Last 30 Days',
+        earlier: 'Earlier',
+      }
+
+      // Sort notes into groups
+      notes.forEach(note => {
+        groups[note.time_group].push(note)
+      })
+
+      // Convert to sections array, filtering empty groups and sorting notes within each group
+      return (
+        Object.entries(groups)
+          .filter(([_, notes]) => notes.length > 0)
+          .map(([timeGroup, notes]) => ({
+            timeGroup: timeGroup as TimeGroup,
+            displayName: displayNames[timeGroup as TimeGroup],
+            notes: notes.sort(
+              (a, b) =>
+                new Date(b.updated_at).getTime() -
+                new Date(a.updated_at).getTime()
+            ),
+            totalCount: notes.length,
+            isExpanded: true, // Default to expanded
+          }))
+          // Sort sections by time group priority
+          .sort((a, b) => {
+            const priority: Record<TimeGroup, number> = {
+              yesterday: 1,
+              last_week: 2,
+              last_month: 3,
+              earlier: 4,
+            }
+            return priority[a.timeGroup] - priority[b.timeGroup]
+          })
+      )
+    },
+    []
+  )
 
   // Create note mutation
   const createNoteMutation = useMutation({
@@ -155,26 +251,42 @@ export function useNotesMutations() {
     },
   })
 
-  // Basic ILIKE search (fallback/legacy mode)
+  // Basic ILIKE search (fallback/legacy mode) with enhanced Korean text support
   const searchNotesBasic = useCallback(
     async (query: string, maxResults: number = 50): Promise<Note[]> => {
       if (!user?.id || !query.trim()) {
         return []
       }
 
-      const { data, error } = await stableSupabase
-        .from('notes')
-        .select('*')
-        .eq('user_id', user.id)
-        .or(`content.ilike.%${query}%,title.ilike.%${query}%`)
-        .order('updated_at', { ascending: false })
-        .limit(maxResults)
+      const trimmedQuery = query.trim()
 
-      if (error) {
-        throw new Error(`Failed to search notes: ${error.message}`)
+      try {
+        const { data, error } = await stableSupabase
+          .from('notes')
+          .select('*')
+          .eq('user_id', user.id)
+          .or(`content.ilike.%${trimmedQuery}%,title.ilike.%${trimmedQuery}%`)
+          .order('updated_at', { ascending: false })
+          .limit(maxResults)
+
+        if (data && data.length > 0) {
+        } else {
+          // Additional debugging: check if any notes exist at all
+          const { data: allNotes, error: allError } = await stableSupabase
+            .from('notes')
+            .select('id, content, title')
+            .eq('user_id', user.id)
+            .limit(5)
+        }
+
+        if (error) {
+          throw new Error(`Failed to search notes: ${error.message}`)
+        }
+
+        return data || []
+      } catch (err) {
+        throw err
       }
-
-      return data || []
     },
     [user?.id, stableSupabase]
   )
@@ -262,9 +374,6 @@ export function useNotesMutations() {
       // For very short queries (1-2 characters), use basic search directly
       // PostgreSQL full-text search filters out short terms as stop words
       if (trimmedQuery.length <= 2) {
-        console.log(
-          `Query "${trimmedQuery}" is too short for full-text search, using basic search`
-        )
         const basicResults = await searchNotesBasic(trimmedQuery, maxResults)
         const endTime = performance.now()
 
@@ -300,12 +409,9 @@ export function useNotesMutations() {
 
         const results = data || []
 
-        // If enhanced search returns no results, but basic search might find matches,
-        // fall back to basic search (especially for short queries that might have been filtered)
-        if (results.length === 0 && trimmedQuery.length <= 4) {
-          console.log(
-            `Enhanced search returned no results for "${trimmedQuery}", trying basic search fallback`
-          )
+        // If enhanced search returns no results, fall back to basic search
+        // This handles cases where enhanced search fails or filters too aggressively
+        if (results.length === 0) {
           const basicResults = await searchNotesBasic(trimmedQuery, maxResults)
 
           if (basicResults.length > 0) {
@@ -364,6 +470,213 @@ export function useNotesMutations() {
     [user?.id, stableSupabase, searchNotesBasic]
   )
 
+  // Enhanced search function with temporal grouping support
+  const searchNotesGrouped = useCallback(
+    async (
+      query: string,
+      options: SearchOptions & TemporalGroupingOptions = {}
+    ): Promise<GroupedNotesResponse> => {
+      const startTime = performance.now()
+
+      if (!user?.id || !query.trim()) {
+        // Return empty grouped structure
+        return {
+          sections: [],
+          totalNotes: 0,
+          metadata: {
+            searchTime: 0,
+            totalResults: 0,
+            usedEnhancedSearch: false,
+            query: query.trim(),
+            temporalGrouping: options.groupByTime ?? true,
+            groupCounts: {
+              yesterday: 0,
+              last_week: 0,
+              last_month: 0,
+              earlier: 0,
+            },
+          },
+        }
+      }
+
+      const { maxResults = 200, groupByTime = true } = options
+      const trimmedQuery = query.trim()
+
+      try {
+        // Use the new database function for temporal search with proper ranking
+        const { data, error } = await stableSupabase.rpc(
+          'search_notes_enhanced_grouped',
+          {
+            user_uuid: user.id,
+            search_query: trimmedQuery,
+            max_results: maxResults,
+          }
+        )
+
+        if (error) {
+          throw new Error(`Failed to search notes: ${error.message}`)
+        }
+
+        // Convert database results to GroupedNote format
+        const groupedResults: GroupedNote[] = (data || []).map((note: any) => ({
+          ...note,
+          // Map database time_group to our TimeGroup enum
+          time_group: note.time_group as TimeGroup,
+        }))
+
+        const endTime = performance.now()
+
+        if (groupByTime) {
+          const sections = groupNotesByTime(groupedResults)
+          const groupCounts = groupedResults.reduce(
+            (acc, note) => {
+              acc[note.time_group] = (acc[note.time_group] || 0) + 1
+              return acc
+            },
+            {} as Record<TimeGroup, number>
+          )
+
+          return {
+            sections,
+            totalNotes: groupedResults.length,
+            metadata: {
+              searchTime: Math.round(endTime - startTime),
+              totalResults: groupedResults.length,
+              usedEnhancedSearch: searchResult.metadata.usedEnhancedSearch,
+              query: trimmedQuery,
+              temporalGrouping: true,
+              groupCounts,
+            },
+          }
+        } else {
+          // Fallback to flat structure
+          return {
+            sections: [
+              {
+                timeGroup: 'yesterday' as TimeGroup,
+                displayName: 'Search Results',
+                notes: groupedResults,
+                totalCount: groupedResults.length,
+                isExpanded: true,
+              },
+            ],
+            totalNotes: groupedResults.length,
+            metadata: {
+              searchTime: Math.round(endTime - startTime),
+              totalResults: groupedResults.length,
+              usedEnhancedSearch: searchResult.metadata.usedEnhancedSearch,
+              query: trimmedQuery,
+              temporalGrouping: false,
+              groupCounts: {
+                yesterday: groupedResults.length,
+                last_week: 0,
+                last_month: 0,
+                earlier: 0,
+              },
+            },
+          }
+        }
+      } catch (error) {
+        console.error('Grouped search error:', error)
+
+        // Fallback to basic search with client-side grouping
+        const basicResults = await searchNotesBasic(trimmedQuery, maxResults)
+        const boundaries = getTemporalBoundaries()
+
+        const groupedBasicResults: GroupedNote[] = basicResults.map(note => ({
+          ...note,
+          time_group: classifyNoteByTime(note.updated_at, boundaries),
+          group_rank: 1,
+          highlighted_content: note.content,
+          highlighted_title: note.title,
+          search_rank: 0.5,
+        }))
+
+        const sections = groupNotesByTime(groupedBasicResults)
+        const endTime = performance.now()
+
+        return {
+          sections,
+          totalNotes: basicResults.length,
+          metadata: {
+            searchTime: Math.round(endTime - startTime),
+            totalResults: basicResults.length,
+            usedEnhancedSearch: false,
+            query: trimmedQuery,
+            temporalGrouping: groupByTime,
+            groupCounts: groupedBasicResults.reduce(
+              (acc, note) => {
+                acc[note.time_group] = (acc[note.time_group] || 0) + 1
+                return acc
+              },
+              {} as Record<TimeGroup, number>
+            ),
+          },
+        }
+      }
+    },
+    [
+      user?.id,
+      searchNotesEnhanced,
+      searchNotesBasic,
+      getTemporalBoundaries,
+      classifyNoteByTime,
+      groupNotesByTime,
+    ]
+  )
+
+  // Browse function for temporal grouping (non-search mode)
+  const getNotesGrouped = useCallback(
+    async (
+      options: { maxResults?: number; offset?: number } = {}
+    ): Promise<GroupedNotesResponse> => {
+      if (!user?.id) {
+        return { sections: [], totalNotes: 0 }
+      }
+
+      const { maxResults = 200, offset = 0 } = options
+
+      try {
+        // Use the new database function for temporal note retrieval with proper grouping
+        const { data, error } = await stableSupabase.rpc(
+          'get_notes_grouped_by_time',
+          {
+            user_uuid: user.id,
+            max_results: maxResults,
+          }
+        )
+
+        if (error) {
+          throw new Error(`Failed to fetch notes: ${error.message}`)
+        }
+
+        // Convert database results to GroupedNote format
+        const groupedResults: GroupedNote[] = (data || []).map((note: any) => ({
+          ...note,
+          time_group: note.time_group as TimeGroup,
+          group_rank: 1,
+        }))
+
+        const sections = groupNotesByTime(groupedResults)
+
+        return {
+          sections,
+          totalNotes: groupedResults.length,
+        }
+      } catch (error) {
+        console.error('Grouped notes fetch error:', error)
+        throw error
+      }
+    },
+    [
+      user?.id,
+      stableSupabase,
+      getTemporalBoundaries,
+      classifyNoteByTime,
+      groupNotesByTime,
+    ]
+  )
+
   return {
     // Mutations
     createNote: createNoteMutation.mutate,
@@ -379,6 +692,10 @@ export function useNotesMutations() {
     searchNotes,
     searchNotesEnhanced,
     searchNotesBasic,
+
+    // Temporal grouping functions
+    searchNotesGrouped,
+    getNotesGrouped,
 
     // Loading states
     isCreating: createNoteMutation.isPending,

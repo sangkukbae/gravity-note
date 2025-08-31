@@ -68,7 +68,7 @@ describe('NotesContainer', () => {
     )
 
     expect(
-      screen.getByPlaceholderText('Capture your thought...')
+      screen.getByPlaceholderText("What's on your mind?")
     ).toBeInTheDocument()
     expect(screen.getByText('First note content')).toBeInTheDocument()
     expect(screen.getByText('Second note content')).toBeInTheDocument()
@@ -96,7 +96,7 @@ describe('NotesContainer', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText('Capture your thought...')
+    const input = screen.getByPlaceholderText("What's on your mind?")
     const submitButton = screen.getByLabelText('Add note')
 
     await user.type(input, 'New note content')
@@ -131,7 +131,7 @@ describe('NotesContainer', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText('Capture your thought...')
+    const input = screen.getByPlaceholderText("What's on your mind?")
 
     await user.type(input, 'Keyboard note{enter}')
 
@@ -257,7 +257,7 @@ describe('NotesContainer', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText('Capture your thought...')
+    const input = screen.getByPlaceholderText("What's on your mind?")
     const submitButton = screen.getByLabelText('Add note')
 
     await user.type(input, 'Failed note')
@@ -273,7 +273,7 @@ describe('NotesContainer', () => {
     expect(input).toHaveValue('Failed note')
   })
 
-  it('supports keyboard shortcut for opening search', () => {
+  it('supports keyboard shortcut for opening search (Cmd+K)', () => {
     render(
       <NotesContainer
         initialNotes={mockNotes}
@@ -283,9 +283,31 @@ describe('NotesContainer', () => {
       />
     )
 
-    // Simulate Ctrl+F
+    // Simulate Cmd+K (Mac) key combination
     fireEvent.keyDown(document, {
-      key: 'f',
+      key: 'k',
+      metaKey: true,
+      preventDefault: vi.fn(),
+    })
+
+    expect(
+      screen.getByPlaceholderText('Search all your thoughts...')
+    ).toBeInTheDocument()
+  })
+
+  it('supports keyboard shortcut for opening search (Ctrl+K)', () => {
+    render(
+      <NotesContainer
+        initialNotes={mockNotes}
+        onCreateNote={mockOnCreateNote}
+        onRescueNote={mockOnRescueNote}
+        onSearchNotes={mockOnSearchNotes}
+      />
+    )
+
+    // Simulate Ctrl+K (Windows/Linux) key combination
+    fireEvent.keyDown(document, {
+      key: 'k',
       ctrlKey: true,
       preventDefault: vi.fn(),
     })
