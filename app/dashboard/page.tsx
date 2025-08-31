@@ -1,24 +1,24 @@
 'use client'
 
 import { ProtectedRoute } from '@/components/auth/protected-route'
-import { CustomUserMenu } from '@/components/auth/custom-user-menu'
+import { UserMenu } from '@/components/auth/user-menu'
 import { NotesContainer, type NotesContainerRef } from '@/components/notes'
 import { useCommandPalette } from '@/components/search/command-palette'
-import { TemporalCommandPalette } from '@/components/search/temporal-command-palette'
 import { SearchErrorWrapper } from '@/components/search/error-boundary'
+import { TemporalCommandPalette } from '@/components/search/temporal-command-palette'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
-import { useCallback, useEffect, useRef } from 'react'
-import { useNotesRealtime } from '@/hooks/use-notes-realtime'
 import { useNotesMutations } from '@/hooks/use-notes-mutations'
-import { toast } from 'sonner'
-import { SearchIcon } from 'lucide-react'
+import { useNotesRealtime } from '@/hooks/use-notes-realtime'
+import { useUnifiedSearch } from '@/hooks/use-unified-search'
 import type { Note } from '@/lib/supabase/realtime'
-import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
-import type { GroupedNotesResponse } from '@/types/temporal'
 import {
   getSearchShortcutText,
   getSearchShortcutTooltip,
 } from '@/lib/utils/keyboard'
+import type { UnifiedNoteResult, UnifiedNotesResponse } from '@/types/unified'
+import { SearchIcon } from 'lucide-react'
+import { useCallback, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 
 export default function DashboardPage() {
   const notesContainerRef = useRef<NotesContainerRef>(null)
@@ -52,44 +52,50 @@ export default function DashboardPage() {
   const {
     createNoteAsync,
     rescueNoteAsync,
-    searchNotesEnhanced,
-    searchNotesGrouped,
-    getNotesGrouped,
     isCreating,
     isRescuing,
     createError,
     rescueError,
   } = useNotesMutations()
 
-  // Command Palette search handler
+  // Unified search hook
+  const unifiedSearch = useUnifiedSearch()
+
+  // Command Palette search handler using unified search
   const handleCommandPaletteSearch = useCallback(
     async (query: string) => {
       try {
-        // Use enhanced search with highlighting
-        const { results, metadata } = await searchNotesEnhanced(query, {
+        // Use unified search with highlighting
+        const response = await unifiedSearch.search(query, {
           maxResults: 50,
+          groupByTime: false,
         })
 
-        // Show search feedback for enhanced search
-        if (metadata.usedEnhancedSearch && results.length > 0) {
+        // Extract individual results from sections for backward compatibility
+        const results: UnifiedNoteResult[] = response.sections.flatMap(
+          section => section.notes
+        )
+
+        // Show search feedback
+        if (response.metadata.usedEnhancedSearch && results.length > 0) {
           console.log(
-            `Enhanced search found ${results.length} results in ${metadata.searchTime}ms`
+            `Unified search found ${results.length} results in ${response.metadata.searchTime}ms`
           )
         }
 
-        return { results, metadata }
+        return { results, metadata: response.metadata }
       } catch (error) {
         console.error('Command palette search failed:', error)
         toast.error('Search failed. Please try again.')
         throw error
       }
     },
-    [searchNotesEnhanced]
+    [unifiedSearch]
   )
 
   // Handle search result selection
   const handleSearchResultSelect = useCallback(
-    (result: EnhancedSearchResult | Note) => {
+    (result: UnifiedNoteResult | Note) => {
       // For now, just log the selection - you can navigate to the note here
       console.log('Search result selected:', result.id)
       toast.success('Note selected!')
@@ -98,37 +104,79 @@ export default function DashboardPage() {
     []
   )
 
-  // Handle grouped search for temporal grouping
+  // Handle grouped search for temporal grouping using unified search
   const handleGroupedSearch = useCallback(
-    async (query: string): Promise<GroupedNotesResponse> => {
+    async (query: string): Promise<UnifiedNotesResponse> => {
       try {
-        // Perform grouped search
-        const groupedData = await searchNotesGrouped(query)
-        return groupedData
+        // Perform unified grouped search
+        const response = await unifiedSearch.search(query, {
+          maxResults: 200,
+          groupByTime: true,
+        })
+        return response
       } catch (error) {
         console.error('Grouped search failed:', error)
         toast.error('Search failed. Please try again.')
-        // Return empty data on error
-        return { sections: [], totalNotes: 0 }
+        // Return empty response on error
+        return {
+          sections: [],
+          totalNotes: 0,
+          metadata: {
+            searchTime: 0,
+            totalResults: 0,
+            usedEnhancedSearch: false,
+            query: query,
+            temporalGrouping: true,
+            groupCounts: {
+              yesterday: 0,
+              last_week: 0,
+              last_month: 0,
+              earlier: 0,
+              all: 0,
+            },
+            mode: 'search',
+          },
+        }
       }
     },
-    [searchNotesGrouped]
+    [unifiedSearch]
   )
 
-  // Handle loading all notes grouped by time period
+  // Handle loading all notes grouped by time period using unified search
   const handleGetNotesGrouped =
-    useCallback(async (): Promise<GroupedNotesResponse> => {
+    useCallback(async (): Promise<UnifiedNotesResponse> => {
       try {
         // Load all notes grouped by time period
-        const groupedData = await getNotesGrouped()
-        return groupedData
+        const response = await unifiedSearch.browse({
+          maxResults: 200,
+          groupByTime: true,
+        })
+        return response
       } catch (error) {
         console.error('Failed to load grouped notes:', error)
         toast.error('Failed to load notes. Please try again.')
-        // Return empty data on error
-        return { sections: [], totalNotes: 0 }
+        // Return empty response on error
+        return {
+          sections: [],
+          totalNotes: 0,
+          metadata: {
+            searchTime: 0,
+            totalResults: 0,
+            usedEnhancedSearch: false,
+            query: '',
+            temporalGrouping: true,
+            groupCounts: {
+              yesterday: 0,
+              last_week: 0,
+              last_month: 0,
+              earlier: 0,
+              all: 0,
+            },
+            mode: 'browse',
+          },
+        }
       }
-    }, [getNotesGrouped])
+    }, [unifiedSearch])
 
   // Handle note creation with error handling
   const handleCreateNote = useCallback(
@@ -279,7 +327,7 @@ export default function DashboardPage() {
                   </div>
                 </button>
                 <ThemeToggle />
-                <CustomUserMenu />
+                <UserMenu />
               </div>
             </div>
           </div>
@@ -302,9 +350,8 @@ export default function DashboardPage() {
           <TemporalCommandPalette
             open={isCommandPaletteOpen}
             onOpenChange={setCommandPaletteOpen}
-            onSearch={handleCommandPaletteSearch}
-            onSearchGrouped={handleGroupedSearch}
-            onGetNotesGrouped={handleGetNotesGrouped}
+            onUnifiedSearch={handleGroupedSearch}
+            onUnifiedBrowse={handleGetNotesGrouped}
             onResultSelect={handleSearchResultSelect}
           />
         </SearchErrorWrapper>
