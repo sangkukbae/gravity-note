@@ -28,20 +28,9 @@ const CommandDialog = ({ children, ...props }: DialogProps) => {
     <Dialog {...props}>
       <DialogContent
         className={cn(
-          // Override default dialog positioning and animation - using exact pattern from note-creation-modal
-          '!fixed !inset-0 !z-50 !mx-auto !flex !max-w-none !flex-col !bg-background !p-0 !translate-x-0 !translate-y-0 !left-auto !top-auto !gap-0 !shadow-none !border-0 !duration-150',
-          // Desktop: centered modal with proper sizing
-          'md:!inset-auto md:!max-w-[640px] md:!w-[90vw] md:!rounded-lg md:!border md:!shadow-lg md:!max-h-[85vh]',
-          'md:!top-[50%] md:!left-[50%] md:!translate-x-[-50%] md:!translate-y-[-50%]',
-          // Center-based animations (override defaults)
-          '!data-[state=open]:animate-in !data-[state=closed]:animate-out',
-          '!data-[state=closed]:fade-out-0 !data-[state=open]:fade-in-0',
-          '!data-[state=closed]:zoom-out-95 !data-[state=open]:zoom-in-95',
-          // Remove slide animations that come from bottom-right
-          '!data-[state=closed]:!slide-out-to-left-0 !data-[state=open]:!slide-in-from-left-0',
-          '!data-[state=closed]:!slide-out-to-top-0 !data-[state=open]:!slide-in-from-top-0',
-          // Additional styling
-          'overflow-hidden border-border/50'
+          // Rely on default centering/animations from DialogContent.
+          // Only layout/size tweaks below.
+          'p-0 overflow-hidden md:max-w-[640px] md:w-[90vw] md:max-h-[85vh]'
         )}
       >
         <Command className='[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5'>

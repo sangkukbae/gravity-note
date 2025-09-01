@@ -10,11 +10,11 @@ import { NoteActionGroup } from './note-action-group'
 export interface Note {
   id: string
   content: string | React.ReactNode
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
   user_id: string
   title?: string | null
-  is_rescued: boolean
+  is_rescued: boolean | null
   original_note_id?: string | null
 }
 
@@ -104,7 +104,8 @@ export const NoteItem = memo(function NoteItem({
   // Memoize expensive calculations
   const formattedTimeAgo = useMemo(() => {
     try {
-      return formatDistanceToNow(new Date(note.created_at), { addSuffix: true })
+      const createdAt = note.created_at || new Date().toISOString()
+      return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
     } catch (error) {
       return 'some time ago'
     }
@@ -113,6 +114,8 @@ export const NoteItem = memo(function NoteItem({
   const isRecentlyRescued = useMemo(
     () =>
       note.is_rescued &&
+      note.updated_at &&
+      note.created_at &&
       new Date(note.updated_at).getTime() > new Date(note.created_at).getTime(),
     [note.is_rescued, note.updated_at, note.created_at]
   )
@@ -145,8 +148,10 @@ export const NoteItem = memo(function NoteItem({
         <div className='flex items-center gap-2 text-xs text-muted-foreground/70'>
           <ClockIcon className='h-3 w-3' />
           <time
-            dateTime={note.created_at}
-            title={new Date(note.created_at).toLocaleString()}
+            dateTime={note.created_at || new Date().toISOString()}
+            title={new Date(
+              note.created_at || new Date().toISOString()
+            ).toLocaleString()}
             className='hover:text-muted-foreground transition-colors duration-150'
           >
             {formattedTimeAgo}

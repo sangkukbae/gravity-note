@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/lib/stores/auth'
 import { createClient } from '@/lib/supabase/client'
 import { RealtimeNotesManager, type Note } from '@/lib/supabase/realtime'
-import { useAuthStore } from '@/lib/stores/auth'
+import { safeDate } from '@/lib/utils/note-transformers'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 export interface UseNotesRealtimeOptions {
   enabled?: boolean
@@ -31,7 +32,7 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
   } = options
 
   const queryClient = useQueryClient()
-  const { user } = useAuthStore()
+  const { user, initialized } = useAuthStore()
   // Create stable Supabase client instance to prevent re-renders
   const supabase = useMemo(() => createClient(), [])
 
@@ -132,7 +133,7 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         // Re-sort by updated_at (most recent first) to maintain correct order
         return updatedNotes.sort(
           (a, b) =>
-            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+            safeDate(b.updated_at).getTime() - safeDate(a.updated_at).getTime()
         )
       })
     },
@@ -183,13 +184,21 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
 
   // Set up real-time subscription
   useEffect(() => {
-    if (!enabled || !user?.id) {
-      console.log(
-        'Real-time setup skipped - enabled:',
-        enabled,
-        'user:',
-        !!user?.id
-      )
+    // Only skip if explicitly disabled or if we know for certain user is not authenticated
+    if (!enabled) {
+      console.log('Real-time setup skipped - disabled by enabled flag')
+      return
+    }
+
+    // Don't skip if auth is still initializing - wait for it to complete
+    if (!initialized) {
+      console.log('Real-time setup waiting for auth initialization...')
+      return
+    }
+
+    // Only skip if we're certain there's no authenticated user
+    if (!user?.id) {
+      console.log('Real-time setup skipped - no authenticated user')
       return
     }
 
@@ -249,20 +258,32 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
 
     // Cleanup on unmount or dependency change
     return () => {
-      console.log('Cleaning up real-time connection for user:', user.id)
+      console.log(
+        'Cleaning up real-time connection for user:',
+        user?.id || 'unknown'
+      )
       isCleanedUp = true
       if (realtimeManagerRef.current) {
         realtimeManagerRef.current.unsubscribe()
         realtimeManagerRef.current = null
       }
-      setRealtimeState({
-        isRealtimeConnected: false,
-        connectionStatus: 'disconnected',
-        lastRealtimeActivity: null,
-        realtimeError: null,
+      // Only update state if we were actually connected to avoid unnecessary re-renders
+      setRealtimeState(prev => {
+        if (
+          prev.connectionStatus === 'disconnected' &&
+          !prev.isRealtimeConnected
+        ) {
+          return prev // No change needed
+        }
+        return {
+          isRealtimeConnected: false,
+          connectionStatus: 'disconnected',
+          lastRealtimeActivity: prev.lastRealtimeActivity, // Preserve activity timestamp
+          realtimeError: null,
+        }
       })
     }
-  }, [enabled, user?.id, stableHandlers])
+  }, [enabled, initialized, user?.id, stableHandlers])
 
   // Reconnection function
   const reconnectRealtime = useCallback(async () => {

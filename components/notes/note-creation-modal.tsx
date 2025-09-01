@@ -119,7 +119,7 @@ export const NoteCreationModal = forwardRef<
       }
     }
 
-    // Handle keyboard shortcuts
+    // Handle keyboard shortcuts (scoped to textarea only)
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       // Submit on Ctrl/Cmd+Enter
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -129,7 +129,6 @@ export const NoteCreationModal = forwardRef<
 
       // Close modal on Escape (with confirmation if there's unsaved content)
       if (e.key === 'Escape') {
-        e.preventDefault()
         handleCloseModal()
       }
     }
@@ -154,38 +153,15 @@ export const NoteCreationModal = forwardRef<
       setTimeout(() => adjustHeight(), 0)
     }
 
-    // Handle global keyboard shortcuts when modal is open
-    useEffect(() => {
-      if (!isOpen) return
-
-      const handleGlobalKeyDown = (e: KeyboardEvent) => {
-        // Close on Escape key
-        if (e.key === 'Escape') {
-          e.preventDefault()
-          handleCloseModal()
-        }
-      }
-
-      document.addEventListener('keydown', handleGlobalKeyDown)
-      return () => document.removeEventListener('keydown', handleGlobalKeyDown)
-    }, [isOpen, handleCloseModal])
+    // Note: avoid global Escape prevention to not interfere with other Radix layers
 
     return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent
           className={cn(
-            // Override default dialog positioning and animation
-            '!fixed !inset-0 !z-50 !mx-auto !flex !max-w-none !flex-col !bg-background !p-0 !translate-x-0 !translate-y-0 !left-auto !top-auto !gap-0 !shadow-none !border-0 !duration-200',
-            // Desktop: centered modal with proper sizing
-            'md:!inset-auto md:!max-w-2xl md:!rounded-lg md:!border md:!shadow-lg md:!max-h-[85vh]',
-            'md:!top-[50%] md:!left-[50%] md:!translate-x-[-50%] md:!translate-y-[-50%]',
-            // Center-based animations (override defaults)
-            '!data-[state=open]:animate-in !data-[state=closed]:animate-out',
-            '!data-[state=closed]:fade-out-0 !data-[state=open]:fade-in-0',
-            '!data-[state=closed]:zoom-out-95 !data-[state=open]:zoom-in-95',
-            // Remove slide animations that come from bottom-right
-            '!data-[state=closed]:!slide-out-to-left-0 !data-[state=open]:!slide-in-from-left-0',
-            '!data-[state=closed]:!slide-out-to-top-0 !data-[state=open]:!slide-in-from-top-0'
+            // Use default centering and animations from dialog UI.
+            // Only tweak layout: remove outer padding/gaps and widen on desktop.
+            'p-0 gap-0 md:max-w-2xl md:max-h-[85vh]'
           )}
           // Prevent automatic close on outside click when there's unsaved content
           onPointerDownOutside={e => {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createHighlighter } from 'shiki'
 
 interface CodeBlockProps {
   children: string
@@ -17,51 +18,40 @@ interface CodeBlockProps {
 // Global cache for highlighted code to prevent re-highlighting identical content
 const highlightCache = new Map<string, string>()
 
-// Global highlighter instance to avoid recreating
+// Global highlighter instance to avoid recreating (eager, static import)
 let globalHighlighter: any = null
-let highlighterPromise: Promise<any> | null = null
+let globalHighlighterPromise: Promise<any> | null = null
 
-const createGlobalHighlighter = async () => {
-  if (globalHighlighter) return globalHighlighter
-
-  if (highlighterPromise) return highlighterPromise
-
-  highlighterPromise = (async () => {
-    try {
-      const { createHighlighter } = await import('shiki')
-      globalHighlighter = await createHighlighter({
-        themes: ['github-light', 'github-dark'],
-        langs: [
-          'typescript',
-          'javascript',
-          'jsx',
-          'tsx',
-          'python',
-          'rust',
-          'go',
-          'java',
-          'cpp',
-          'c',
-          'css',
-          'html',
-          'json',
-          'yaml',
-          'markdown',
-          'bash',
-          'sql',
-          'php',
-        ],
-      })
-      return globalHighlighter
-    } catch (error) {
-      console.warn('Failed to create global highlighter:', error)
-      highlighterPromise = null
-      throw error
-    }
-  })()
-
-  return highlighterPromise
+const initHighlighter = () => {
+  if (!globalHighlighterPromise) {
+    globalHighlighterPromise = createHighlighter({
+      themes: ['github-light', 'github-dark'],
+      langs: [
+        'typescript',
+        'javascript',
+        'jsx',
+        'tsx',
+        'python',
+        'rust',
+        'go',
+        'java',
+        'cpp',
+        'c',
+        'css',
+        'html',
+        'json',
+        'yaml',
+        'markdown',
+        'bash',
+        'sql',
+        'php',
+      ],
+    }).then(h => (globalHighlighter = h))
+  }
 }
+
+// Kick off initialization at module load
+initHighlighter()
 
 /**
  * GitHub-style code block component with syntax highlighting and copy functionality
@@ -116,7 +106,11 @@ export const CodeBlock = React.memo(function CodeBlock({
     setIsHighlighting(true)
 
     try {
-      const highlighter = await createGlobalHighlighter()
+      // Ensure highlighter is ready (already started at module load)
+      if (!globalHighlighter) {
+        await (globalHighlighterPromise ?? initHighlighter())
+      }
+      const highlighter = globalHighlighter
 
       // Check if operation was aborted or component unmounted
       if (controller.signal.aborted || !mountedRef.current) {
@@ -177,6 +171,8 @@ export const CodeBlock = React.memo(function CodeBlock({
     }
   }, [highlightCode])
 
+  // Static import + eager init removes the need for additional prewarm hooks
+
   // Copy to clipboard functionality - memoized to prevent recreation on re-renders
   const copyToClipboard = useCallback(async () => {
     if (!mounted) return
@@ -190,8 +186,8 @@ export const CodeBlock = React.memo(function CodeBlock({
     }
   }, [mounted, cleanCode])
 
-  // Show loading state only during initial highlighting, not during re-renders
-  const shouldShowFallback = !highlightedCode && !isHighlighting
+  // Prefer showing plain code fallback while highlighting to avoid a visual "loading" state
+  const shouldShowFallback = !highlightedCode
 
   return (
     <div className={cn('code-block-container group relative my-4', className)}>
@@ -220,7 +216,7 @@ export const CodeBlock = React.memo(function CodeBlock({
       <div
         className={cn(
           'relative overflow-hidden rounded-lg border border-border',
-          'bg-muted/50 dark:bg-muted/30'
+          highlightedCode ? 'bg-muted/50 dark:bg-muted/30' : 'bg-transparent'
         )}
       >
         {mounted && highlightedCode ? (
@@ -240,14 +236,7 @@ export const CodeBlock = React.memo(function CodeBlock({
           >
             <code className='text-inherit bg-transparent'>{cleanCode}</code>
           </pre>
-        ) : (
-          // Preserve space during highlighting to prevent layout shifts
-          <div className='h-20 flex items-center justify-center'>
-            <div className='text-muted-foreground text-sm'>
-              Loading syntax highlighting...
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

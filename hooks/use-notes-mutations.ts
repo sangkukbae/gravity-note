@@ -1,24 +1,28 @@
 'use client'
 
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth'
+import { createClient } from '@/lib/supabase/client'
 import type { Note, NoteInsert, NoteUpdate } from '@/lib/supabase/realtime'
+import {
+  transformDatabaseNote,
+  transformDatabaseNotes,
+} from '@/lib/utils/note-transformers'
 import type {
   EnhancedSearchResult,
-  SearchOptions,
   SearchMetadata,
+  SearchOptions,
 } from '@/types/search'
 import type {
   GroupedNote,
-  NoteTimeSection,
   GroupedNotesResponse,
-  TimeGroup,
+  NoteTimeSection,
   TemporalBoundaries,
-  GroupedSearchMetadata,
   TemporalGroupingOptions,
+  TimeGroup,
 } from '@/types/temporal'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useMemo } from 'react'
+import { useUnifiedSearch } from './use-unified-search'
 
 /**
  * Hook for note mutations (create, update, delete)
@@ -28,6 +32,9 @@ export function useNotesMutations() {
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const supabase = createClient()
+
+  // Initialize unified search hook for enhanced search capabilities
+  const unifiedSearch = useUnifiedSearch()
 
   // Search notes function (not a mutation, but related)
   // Memoize to prevent infinite loops in useEffect dependencies
@@ -59,8 +66,8 @@ export function useNotesMutations() {
   }, [])
 
   const classifyNoteByTime = useCallback(
-    (updatedAt: string, boundaries: TemporalBoundaries): TimeGroup => {
-      const noteDate = new Date(updatedAt)
+    (updatedAt: string | null, boundaries: TemporalBoundaries): TimeGroup => {
+      const noteDate = new Date(updatedAt ?? 0)
 
       if (noteDate >= boundaries.yesterday) return 'yesterday'
       if (noteDate >= boundaries.lastWeek) return 'last_week'
@@ -102,8 +109,8 @@ export function useNotesMutations() {
             displayName: displayNames[timeGroup as TimeGroup],
             notes: notes.sort(
               (a, b) =>
-                new Date(b.updated_at).getTime() -
-                new Date(a.updated_at).getTime()
+                new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
+                new Date(a.updated_at ?? a.created_at ?? 0).getTime()
             ),
             totalCount: notes.length,
             isExpanded: true, // Default to expanded
@@ -147,7 +154,7 @@ export function useNotesMutations() {
         throw new Error(`Failed to create note: ${error.message}`)
       }
 
-      return data
+      return transformDatabaseNote(data)
     },
     onSuccess: newNote => {
       // Real-time will handle the update, but we can optionally invalidate
@@ -193,7 +200,7 @@ export function useNotesMutations() {
         throw new Error(`Failed to update note: ${error.message}`)
       }
 
-      return data
+      return transformDatabaseNote(data)
     },
     onSuccess: updatedNote => {
       // Real-time will handle the update, but ensure local state is consistent
@@ -205,7 +212,8 @@ export function useNotesMutations() {
         // Re-sort by updated_at (most recent first) to maintain correct order
         return updatedNotes.sort(
           (a, b) =>
-            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+            new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
+            new Date(a.updated_at ?? a.created_at ?? 0).getTime()
         )
       })
     },
@@ -283,7 +291,7 @@ export function useNotesMutations() {
           throw new Error(`Failed to search notes: ${error.message}`)
         }
 
-        return data || []
+        return transformDatabaseNotes(data || [])
       } catch (err) {
         throw err
       }
@@ -503,15 +511,13 @@ export function useNotesMutations() {
       const trimmedQuery = query.trim()
 
       try {
-        // Use the new database function for temporal search with proper ranking
-        const { data, error } = await stableSupabase.rpc(
-          'search_notes_enhanced_grouped',
-          {
-            user_uuid: user.id,
-            search_query: trimmedQuery,
-            max_results: maxResults,
-          }
-        )
+        // Use the unified database function for temporal search
+        const { data, error } = await stableSupabase.rpc('get_notes_unified', {
+          user_uuid: user.id,
+          search_query: trimmedQuery,
+          max_results: maxResults,
+          group_by_time: true,
+        })
 
         if (error) {
           throw new Error(`Failed to search notes: ${error.message}`)
@@ -519,9 +525,24 @@ export function useNotesMutations() {
 
         // Convert database results to GroupedNote format
         const groupedResults: GroupedNote[] = (data || []).map((note: any) => ({
-          ...note,
-          // Map database time_group to our TimeGroup enum
+          // Map core note fields from database response
+          id: note.id,
+          user_id: note.user_id || user.id, // Use user.id as fallback if not provided
+          title: note.title,
+          content: note.content,
+          created_at: note.created_at,
+          updated_at: note.updated_at,
+          is_rescued: note.is_rescued,
+          original_note_id: note.original_note_id,
+
+          // Map temporal grouping fields
           time_group: note.time_group as TimeGroup,
+          group_rank: note.group_rank || 1,
+
+          // Map search/highlighting fields (should be present in search mode)
+          highlighted_content: note.highlighted_content || note.content,
+          highlighted_title: note.highlighted_title || note.title,
+          search_rank: note.search_rank || 0,
         }))
 
         const endTime = performance.now()
@@ -542,7 +563,7 @@ export function useNotesMutations() {
             metadata: {
               searchTime: Math.round(endTime - startTime),
               totalResults: groupedResults.length,
-              usedEnhancedSearch: searchResult.metadata.usedEnhancedSearch,
+              usedEnhancedSearch: true,
               query: trimmedQuery,
               temporalGrouping: true,
               groupCounts,
@@ -564,7 +585,7 @@ export function useNotesMutations() {
             metadata: {
               searchTime: Math.round(endTime - startTime),
               totalResults: groupedResults.length,
-              usedEnhancedSearch: searchResult.metadata.usedEnhancedSearch,
+              usedEnhancedSearch: true,
               query: trimmedQuery,
               temporalGrouping: false,
               groupCounts: {
@@ -585,7 +606,10 @@ export function useNotesMutations() {
 
         const groupedBasicResults: GroupedNote[] = basicResults.map(note => ({
           ...note,
-          time_group: classifyNoteByTime(note.updated_at, boundaries),
+          time_group: classifyNoteByTime(
+            note.updated_at ?? note.created_at,
+            boundaries
+          ),
           group_rank: 1,
           highlighted_content: note.content,
           highlighted_title: note.title,
@@ -637,14 +661,12 @@ export function useNotesMutations() {
       const { maxResults = 200, offset = 0 } = options
 
       try {
-        // Use the new database function for temporal note retrieval with proper grouping
-        const { data, error } = await stableSupabase.rpc(
-          'get_notes_grouped_by_time',
-          {
-            user_uuid: user.id,
-            max_results: maxResults,
-          }
-        )
+        // Use the unified database function for temporal note retrieval
+        const { data, error } = await stableSupabase.rpc('get_notes_unified', {
+          user_uuid: user.id,
+          max_results: maxResults,
+          group_by_time: true,
+        })
 
         if (error) {
           throw new Error(`Failed to fetch notes: ${error.message}`)
@@ -652,9 +674,24 @@ export function useNotesMutations() {
 
         // Convert database results to GroupedNote format
         const groupedResults: GroupedNote[] = (data || []).map((note: any) => ({
-          ...note,
+          // Map core note fields from database response
+          id: note.id,
+          user_id: note.user_id || user.id, // Use user.id as fallback if not provided
+          title: note.title,
+          content: note.content,
+          created_at: note.created_at,
+          updated_at: note.updated_at,
+          is_rescued: note.is_rescued,
+          original_note_id: note.original_note_id,
+
+          // Map temporal grouping fields
           time_group: note.time_group as TimeGroup,
-          group_rank: 1,
+          group_rank: note.group_rank || 1,
+
+          // Map search/highlighting fields (optional, may not be present in browse mode)
+          highlighted_content: note.highlighted_content || note.content,
+          highlighted_title: note.highlighted_title || note.title,
+          search_rank: note.search_rank || 0,
         }))
 
         const sections = groupNotesByTime(groupedResults)
@@ -665,7 +702,37 @@ export function useNotesMutations() {
         }
       } catch (error) {
         console.error('Grouped notes fetch error:', error)
-        throw error
+        // Fallback: fetch notes directly and group client-side
+        const { data: browseData, error: browseError } = await stableSupabase
+          .from('notes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(maxResults)
+
+        if (browseError) {
+          throw new Error(`Browse fallback failed: ${browseError.message}`)
+        }
+
+        const boundaries = getTemporalBoundaries()
+        const fallbackResults: GroupedNote[] = (browseData || []).map(
+          (note: any) => ({
+            ...note,
+            time_group: classifyNoteByTime(
+              note.updated_at ?? note.created_at,
+              boundaries
+            ),
+            group_rank: 1,
+            highlighted_content: note.content,
+            highlighted_title: note.title,
+            search_rank: 0,
+          })
+        )
+
+        return {
+          sections: groupNotesByTime(fallbackResults),
+          totalNotes: fallbackResults.length,
+        }
       }
     },
     [
@@ -688,14 +755,24 @@ export function useNotesMutations() {
     rescueNote: rescueNoteMutation.mutate,
     rescueNoteAsync: rescueNoteMutation.mutateAsync,
 
-    // Search functions
+    // Legacy search functions (for backward compatibility)
     searchNotes,
     searchNotesEnhanced,
     searchNotesBasic,
 
-    // Temporal grouping functions
+    // Legacy temporal grouping functions (for backward compatibility)
     searchNotesGrouped,
     getNotesGrouped,
+
+    // New unified search functions (preferred)
+    unifiedSearch: unifiedSearch.search,
+    unifiedBrowse: unifiedSearch.browse,
+    unifiedState: unifiedSearch.state,
+    setSearchQuery: unifiedSearch.setQuery,
+    setSearchMode: unifiedSearch.setMode,
+    setSearchOptions: unifiedSearch.setOptions,
+    resetUnifiedSearch: unifiedSearch.reset,
+    clearSearchResults: unifiedSearch.clearResults,
 
     // Loading states
     isCreating: createNoteMutation.isPending,

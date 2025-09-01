@@ -1,16 +1,13 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  HighlightedText,
-  stripHighlights,
-  countHighlights,
-} from './highlighted-text'
-import { cn } from '@/lib/utils'
-import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import type { Note } from '@/lib/supabase/realtime'
+import { cn } from '@/lib/utils'
+import { safeDate } from '@/lib/utils/note-transformers'
+import type { EnhancedSearchResult, SearchMetadata } from '@/types/search'
+import { useMemo } from 'react'
+import { countHighlights, HighlightedText } from './highlighted-text'
 
 interface SearchResultsProps {
   /** Search results to display */
@@ -184,9 +181,9 @@ function SearchResultItem({
           <div className='flex items-center justify-between text-xs text-muted-foreground'>
             <div className='flex items-center gap-2'>
               <span>
-                {new Date(result.updated_at).toLocaleDateString()}
+                {safeDate(result.updated_at).toLocaleDateString()}
                 {' at '}
-                {new Date(result.updated_at).toLocaleTimeString([], {
+                {safeDate(result.updated_at).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}

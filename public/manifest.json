@@ -12,31 +12,31 @@
   "categories": ["productivity", "utilities"],
   "icons": [
     {
-      "src": "/android-chrome-192x192.png",
+      "src": "/gravity-icon-192.svg",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "maskable any"
     },
     {
-      "src": "/android-chrome-512x512.png",
+      "src": "/gravity-icon-512.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "maskable any"
     },
     {
-      "src": "/apple-touch-icon.png",
+      "src": "/apple-touch-icon.svg",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/svg+xml"
     },
     {
-      "src": "/favicon-16x16.png",
+      "src": "/gravity-icon-16.svg",
       "sizes": "16x16",
-      "type": "image/png"
+      "type": "image/svg+xml"
     },
     {
-      "src": "/favicon-32x32.png",
+      "src": "/gravity-icon-32.svg",
       "sizes": "32x32",
-      "type": "image/png"
+      "type": "image/svg+xml"
     }
   ],
   "shortcuts": [
@@ -47,7 +47,7 @@
       "url": "/new",
       "icons": [
         {
-          "src": "/android-chrome-192x192.png",
+          "src": "/gravity-icon-192.svg",
           "sizes": "192x192"
         }
       ]
@@ -59,7 +59,7 @@
       "url": "/search",
       "icons": [
         {
-          "src": "/android-chrome-192x192.png",
+          "src": "/gravity-icon-192.svg",
           "sizes": "192x192"
         }
       ]

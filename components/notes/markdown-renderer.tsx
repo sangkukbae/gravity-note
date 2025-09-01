@@ -1,19 +1,9 @@
 'use client'
 
-import React, { lazy, Suspense } from 'react'
+import React from 'react'
 import { cn } from '@/lib/utils'
 import { CodeBlock, InlineCode } from '@/components/ui/code-block'
-
-// Lazy load markdown-to-jsx for better bundle splitting and error handling
-const LazyMarkdown = lazy(() => 
-  import('markdown-to-jsx').catch(() => ({
-    default: ({ children }: { children: React.ReactNode }) => (
-      <div className="text-sm leading-relaxed text-foreground/90">
-        {children}
-      </div>
-    )
-  }))
-)
+import Markdown from 'markdown-to-jsx'
 
 interface MarkdownRendererProps {
   content: string
@@ -62,11 +52,11 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
                 const { className, children: codeChildren } =
                   (codeElement.props ?? {}) as CodeChildProps
 
-                if (
-                  typeof className === 'string' &&
-                  className.startsWith('lang-')
-                ) {
-                  const language = className.replace('lang-', '')
+                if (typeof className === 'string') {
+                  const langMatch =
+                    className.match(/language-([\w-]+)/) ||
+                    className.match(/lang-([\w-]+)/)
+                  const language = langMatch ? langMatch[1] : undefined
 
                   return (
                     <CodeBlock
@@ -222,20 +212,7 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
     <div
       className={cn('markdown-content prose prose-sm max-w-none', className)}
     >
-      <Suspense 
-        fallback={
-          <div className="text-sm leading-relaxed text-foreground/90">
-            {content.split('\n').map((line, index, array) => (
-              <React.Fragment key={index}>
-                {line || '\u00A0'} {/* Non-breaking space for empty lines */}
-                {index < array.length - 1 && <br />}
-              </React.Fragment>
-            ))}
-          </div>
-        }
-      >
-        <LazyMarkdown options={markdownOptions}>{content}</LazyMarkdown>
-      </Suspense>
+      <Markdown options={markdownOptions}>{content}</Markdown>
     </div>
   )
 })

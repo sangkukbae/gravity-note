@@ -4,10 +4,11 @@ export interface Note {
   id: string
   user_id: string
   content: string
-  created_at: string
-  updated_at: string
-  is_rescued: boolean
-  original_note_id?: string
+  created_at: string | null
+  updated_at: string | null
+  is_rescued: boolean | null
+  original_note_id: string | null
+  title: string | null
 }
 
 export interface User {
@@ -52,7 +53,34 @@ declare global {
   }
 }
 
-// Re-export temporal grouping types
-export * from './temporal'
+// Re-export legacy types with explicit naming to avoid conflicts
+export type { SearchMetadata as LegacySearchMetadata } from './search'
+
+export type {
+  GroupedNote as LegacyGroupedNote,
+  GroupedNotesResponse as LegacyGroupedNotesResponse,
+  NoteTimeSection as LegacyNoteTimeSection,
+  TemporalBoundaries as LegacyTemporalBoundaries,
+  TimeGroup as LegacyTimeGroup,
+  TimeSectionStats as LegacyTimeSectionStats,
+} from './temporal'
+
+// Re-export unified types (preferred - these are the current API)
+export type {
+  UnifiedNoteResult,
+  UnifiedNotesResponse,
+  UnifiedSearchMetadata,
+  UnifiedSearchState,
+  UnifiedSearchAction,
+  UnifiedNotesOptions,
+  NoteTimeSection,
+  TimeGroup,
+  TemporalBoundaries,
+  TimeSectionStats,
+  // Legacy compatibility types (deprecated)
+  EnhancedSearchResult,
+  GroupedNote,
+  GroupedNotesResponse,
+} from './unified'
 
 export {}
