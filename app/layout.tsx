@@ -5,6 +5,7 @@ import { AuthProvider } from '@/lib/providers/auth-provider'
 import { QueryProvider } from '@/lib/providers/query-provider'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
+import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -141,6 +142,8 @@ export default function RootLayout({
           <QueryProvider>
             <AuthProvider>
               <div id='root'>{children}</div>
+              {/* Register Service Worker for offline support (guarded by feature flag) */}
+              <ServiceWorkerRegister />
               <Toaster
                 position='bottom-center'
                 richColors

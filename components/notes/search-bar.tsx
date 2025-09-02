@@ -15,6 +15,7 @@ interface SearchBarProps {
   isOpen?: boolean
   onToggle?: () => void
   showToggle?: boolean
+  disabled?: boolean
 }
 
 export function SearchBar({
@@ -26,6 +27,7 @@ export function SearchBar({
   isOpen = false,
   onToggle,
   showToggle = true,
+  disabled,
 }: SearchBarProps) {
   const [localValue, setLocalValue] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -88,6 +90,7 @@ export function SearchBar({
               'focus-visible:ring-2 focus-visible:ring-primary'
             )}
             aria-label='Search notes'
+            disabled={!!disabled}
           />
           {localValue && (
             <Button
@@ -96,6 +99,7 @@ export function SearchBar({
               size='sm'
               className='absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0'
               aria-label='Clear search'
+              disabled={!!disabled}
             >
               <XIcon className='h-3 w-3' />
             </Button>
@@ -119,6 +123,7 @@ export function SearchBar({
             'transition-colors duration-150'
           )}
           aria-label='Open search'
+          disabled={!!disabled}
         >
           <SearchIcon className='h-4 w-4' />
         </Button>
@@ -141,6 +146,7 @@ export function SearchBar({
                 'focus-visible:ring-2 focus-visible:ring-primary'
               )}
               aria-label='Search notes'
+              disabled={!!disabled}
             />
             {localValue && (
               <Button
@@ -149,6 +155,7 @@ export function SearchBar({
                 size='sm'
                 className='absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0'
                 aria-label='Clear search'
+                disabled={!!disabled}
               >
                 <XIcon className='h-3 w-3' />
               </Button>
@@ -162,6 +169,7 @@ export function SearchBar({
               size='sm'
               className='h-10 w-10 p-0'
               aria-label='Close search'
+              disabled={!!disabled}
             >
               <XIcon className='h-4 w-4' />
             </Button>

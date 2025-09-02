@@ -21,6 +21,8 @@ import { GroupedNoteList } from './temporal'
 import { cn } from '@/lib/utils'
 import type { GroupedNotesResponse, TimeGroup } from '@/types/temporal'
 import { shouldHandleSearchShortcut } from '@/lib/utils/keyboard'
+import { useOfflineStatus } from '@/hooks/use-offline-status'
+import { LocalSaveIndicator } from '@/components/ui/local-save-indicator'
 // Toast notifications are handled by the parent component
 
 interface NotesContainerProps {
@@ -62,6 +64,7 @@ export const NotesContainer = forwardRef<
     },
     ref
   ) => {
+    const offline = useOfflineStatus()
     const [notes, setNotes] = useState<Note[]>(initialNotes)
     const [isCreating, setIsCreating] = useState(false)
     const [isRescuing, setIsRescuing] = useState(false)
@@ -342,6 +345,13 @@ export const NotesContainer = forwardRef<
                 placeholder="What's on your mind?"
               />
 
+              {/* Offline: Saved locally indicator */}
+              {!offline.effectiveOnline && (
+                <div className='flex justify-between items-center'>
+                  <LocalSaveIndicator />
+                </div>
+              )}
+
               {/* Search Bar - only show when not using external search */}
               {!externalSearchControl && (
                 <div className='flex justify-end'>
@@ -354,6 +364,7 @@ export const NotesContainer = forwardRef<
                     isOpen={isSearchOpen}
                     onToggle={() => setIsSearchOpen(!isSearchOpen)}
                     placeholder='Search all your thoughts...'
+                    disabled={!offline.effectiveOnline}
                   />
                 </div>
               )}
