@@ -23,6 +23,43 @@ import type {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
 import { useUnifiedSearch } from './use-unified-search'
+import { useOfflineStatus } from './use-offline-status'
+import {
+  createOutboxItem,
+  enqueue as enqueueOutbox,
+  flush as flushOutbox,
+} from '@/lib/offline/outbox'
+import type { FlushHandler } from '@/lib/offline/outbox'
+import { syncQueuedNotes } from '@/lib/offline/sync'
+
+function cryptoRandomId(): string {
+  const cryptoObj =
+    (typeof globalThis !== 'undefined' && (globalThis as any).crypto) ||
+    undefined
+  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+    return cryptoObj.randomUUID()
+  }
+  return `${Math.random().toString(36).slice(2)}_${Date.now()}`
+}
+
+async function safeReadError(res: Response): Promise<string | null> {
+  try {
+    const text = await res.text()
+    try {
+      const json = JSON.parse(text)
+      if (json?.error) return String(json.error)
+      return text?.slice(0, 200) || null
+    } catch {
+      return text?.slice(0, 200) || null
+    }
+  } catch {
+    return null
+  }
+}
+
+function isRetryableSupabaseError(message: string): boolean {
+  return /timeout|network|502|503|504/i.test(message)
+}
 
 /**
  * Hook for note mutations (create, update, delete)
@@ -32,6 +69,7 @@ export function useNotesMutations() {
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const supabase = createClient()
+  const offline = useOfflineStatus()
 
   // Initialize unified search hook for enhanced search capabilities
   const unifiedSearch = useUnifiedSearch()
@@ -137,24 +175,49 @@ export function useNotesMutations() {
         throw new Error('User not authenticated')
       }
 
-      const noteData: NoteInsert = {
-        user_id: user.id,
-        content,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+      // If offline (or connectivity uncertain), enqueue and return a temp note optimistically
+      if (!offline.effectiveOnline) {
+        const tempId = `temp_${cryptoRandomId()}`
+        const now = new Date().toISOString()
+
+        const optimistic: Note = {
+          id: tempId,
+          user_id: user.id,
+          content,
+          title: null,
+          created_at: now,
+          updated_at: now,
+          is_rescued: false,
+          original_note_id: null,
+        } as Note
+
+        // Enqueue create mutation for background flush
+        const item = createOutboxItem(
+          'create',
+          { content },
+          {
+            tempId,
+          }
+        )
+        enqueueOutbox(user.id, item)
+
+        return optimistic
       }
 
-      const { data, error } = await supabase
-        .from('notes')
-        .insert(noteData)
-        .select()
-        .single()
-
-      if (error) {
-        throw new Error(`Failed to create note: ${error.message}`)
+      // Route mutations via API proxy for server-side auth
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+      if (!res.ok) {
+        // If proxy fails due to network or transient server error, fallback to offline queue
+        const msg = await safeReadError(res)
+        throw new Error(msg || 'Failed to create note')
       }
-
-      return transformDatabaseNote(data)
+      const json = await res.json()
+      const note = json?.note
+      return transformDatabaseNote(note)
     },
     onSuccess: newNote => {
       // Real-time will handle the update, but we can optionally invalidate
@@ -183,24 +246,17 @@ export function useNotesMutations() {
         throw new Error('User not authenticated')
       }
 
-      const updateData: NoteUpdate = {
-        ...updates,
-        updated_at: new Date().toISOString(),
+      const res = await fetch('/api/notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, updates }),
+      })
+      if (!res.ok) {
+        const msg = await safeReadError(res)
+        throw new Error(msg || 'Failed to update note')
       }
-
-      const { data, error } = await supabase
-        .from('notes')
-        .update(updateData)
-        .eq('id', id)
-        .eq('user_id', user.id) // Additional security check
-        .select()
-        .single()
-
-      if (error) {
-        throw new Error(`Failed to update note: ${error.message}`)
-      }
-
-      return transformDatabaseNote(data)
+      const json = await res.json()
+      return transformDatabaseNote(json.note)
     },
     onSuccess: updatedNote => {
       // Real-time will handle the update, but ensure local state is consistent
@@ -226,16 +282,13 @@ export function useNotesMutations() {
         throw new Error('User not authenticated')
       }
 
-      const { error } = await supabase
-        .from('notes')
-        .delete()
-        .eq('id', noteId)
-        .eq('user_id', user.id) // Additional security check
-
-      if (error) {
-        throw new Error(`Failed to delete note: ${error.message}`)
+      const res = await fetch(`/api/notes?id=${encodeURIComponent(noteId)}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const msg = await safeReadError(res)
+        throw new Error(msg || 'Failed to delete note')
       }
-
       return noteId
     },
     onSuccess: deletedNoteId => {
@@ -773,6 +826,74 @@ export function useNotesMutations() {
     setSearchOptions: unifiedSearch.setOptions,
     resetUnifiedSearch: unifiedSearch.reset,
     clearSearchResults: unifiedSearch.clearResults,
+
+    // Offline helpers
+    flushOfflineOutbox: async () => {
+      if (!user?.id)
+        return { successIds: [], failedIds: [], retriedIds: [], errors: {} }
+
+      const handler: FlushHandler = async item => {
+        try {
+          if (item.type === 'create') {
+            const { content } = item.payload as { content: string }
+            const res = await fetch('/api/notes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content, clientId: item.tempId }),
+            })
+            if (!res.ok) {
+              const msg = await safeReadError(res)
+              const retryable = /timeout|network|502|503|504|429/i.test(
+                msg || ''
+              )
+              return {
+                status: retryable ? 'retry' : 'fail',
+                errorMessage: msg || 'create failed',
+              }
+            }
+            const json = await res.json()
+            const persisted = transformDatabaseNote(json.note)
+
+            if (item.tempId) {
+              queryClient.setQueryData<Note[]>(
+                ['notes', user.id],
+                (old = []) => {
+                  const idx = old.findIndex(n => n.id === item.tempId)
+                  if (idx >= 0) {
+                    const next = [...old]
+                    next[idx] = persisted
+                    return next.sort(
+                      (a, b) =>
+                        new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
+                        new Date(a.updated_at ?? a.created_at ?? 0).getTime()
+                    )
+                  }
+                  return [persisted, ...old]
+                }
+              )
+            }
+
+            return { status: 'success', mappedId: persisted.id }
+          }
+
+          return { status: 'fail', errorMessage: 'unsupported mutation type' }
+        } catch (e: any) {
+          const msg = e?.message || 'flush error'
+          return { status: 'retry', errorMessage: msg }
+        }
+      }
+
+      // Use exponential backoff with jitter
+      const result = await syncQueuedNotes({
+        userId: user.id,
+        handler,
+        maxAttempts: 5,
+        baseDelayMs: 500,
+        jitterMs: 250,
+      })
+
+      return result
+    },
 
     // Loading states
     isCreating: createNoteMutation.isPending,
