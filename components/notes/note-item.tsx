@@ -6,6 +6,8 @@ import { ClockIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { SmartTextRenderer } from './smart-text-renderer'
 import { NoteActionGroup } from './note-action-group'
+import { PendingNoteBadge } from '@/components/ui/pending-note-badge'
+import { useNotePendingStatus } from '@/hooks/use-note-pending-status'
 
 export interface Note {
   id: string
@@ -41,6 +43,10 @@ export const NoteItem = memo(function NoteItem({
   const [isExpanded, setIsExpanded] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const previousHeightRef = useRef<number>(0)
+
+  // Check if note is pending sync
+  const { isNotePending } = useNotePendingStatus()
+  const isPending = isNotePending(note.id)
 
   // Character limit for truncation (approximately 300 characters)
   const CHAR_LIMIT = 300
@@ -144,7 +150,7 @@ export const NoteItem = memo(function NoteItem({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Header Zone - Left aligned time info */}
+        {/* Header Zone - Left aligned time info and status badges */}
         <div className='flex items-center gap-2 text-xs text-muted-foreground/70'>
           <ClockIcon className='h-3 w-3' />
           <time
@@ -162,6 +168,8 @@ export const NoteItem = memo(function NoteItem({
               <span className='text-primary/70 font-medium'>rescued</span>
             </>
           )}
+          {/* Pending Sync Badge */}
+          <PendingNoteBadge isPending={isPending} />
         </div>
 
         {/* Content Zone - Note content and inline expand controls */}

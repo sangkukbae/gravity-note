@@ -7,7 +7,9 @@ import { useCommandPalette } from '@/components/search/command-palette'
 import { SearchErrorWrapper } from '@/components/search/error-boundary'
 import { TemporalCommandPalette } from '@/components/search/temporal-command-palette'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { OfflineStatusIndicator } from '@/components/ui/offline-status-indicator'
 import { useNotesMutations } from '@/hooks/use-notes-mutations'
+import { useOfflineStatus } from '@/hooks/use-offline-status'
 import { useNotesRealtime } from '@/hooks/use-notes-realtime'
 import { useUnifiedSearch } from '@/hooks/use-unified-search'
 import type { Note } from '@/lib/supabase/realtime'
@@ -17,11 +19,15 @@ import {
 } from '@/lib/utils/keyboard'
 import type { UnifiedNoteResult, UnifiedNotesResponse } from '@/types/unified'
 import { SearchIcon } from 'lucide-react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/lib/stores/auth'
+import { getOutboxCount } from '@/lib/offline/outbox'
 
 export default function DashboardPage() {
   const notesContainerRef = useRef<NotesContainerRef>(null)
+  const { user } = useAuthStore()
+  const [outboxCount, setOutboxCount] = useState(0)
 
   // Command Palette state
   const {
@@ -56,7 +62,61 @@ export default function DashboardPage() {
     isRescuing,
     createError,
     rescueError,
+    flushOfflineOutbox,
   } = useNotesMutations()
+
+  const offline = useOfflineStatus()
+
+  // Best-effort: register Background Sync
+  useEffect(() => {
+    offline.registerBackgroundSync?.('gravity-sync')
+  }, [offline])
+
+  // Keep header pending count up-to-date
+  useEffect(() => {
+    if (!user?.id) return
+    const updateCount = () => setOutboxCount(getOutboxCount(user.id))
+    updateCount()
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || !e.key.includes(`gn:outbox:${user.id}`)) return
+      updateCount()
+    }
+    window.addEventListener('storage', onStorage)
+    const id = window.setInterval(updateCount, 5000)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.clearInterval(id)
+    }
+  }, [user?.id])
+
+  // Trigger sync on reconnect and focus
+  useEffect(() => {
+    if (!user?.id) return
+    const attemptSync = async () => {
+      try {
+        const res = await flushOfflineOutbox()
+        if (res.successIds.length > 0) {
+          toast.success(`Sync success (${res.successIds.length})`)
+          setOutboxCount(getOutboxCount(user.id))
+        }
+        if (res.failedIds.length > 0) {
+          toast.error(`Sync failed (${res.failedIds.length})`)
+        }
+      } catch (e) {
+        // swallow
+      }
+    }
+    const onOnline = () => attemptSync()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') attemptSync()
+    }
+    window.addEventListener('online', onOnline)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [user?.id, flushOfflineOutbox])
 
   // Unified search hook
   const unifiedSearch = useUnifiedSearch()
@@ -194,6 +254,102 @@ export default function DashboardPage() {
     [createNoteAsync]
   )
 
+  // Flush offline outbox on reconnection or SW sync message
+  useEffect(() => {
+    const tryFlush = async () => {
+      if (!offline.effectiveOnline) return
+
+      // Check if there are items to sync
+      if (user?.id) {
+        const currentOutboxCount = getOutboxCount(user.id)
+        if (currentOutboxCount === 0) return
+
+        // Show sync started toast
+        toast.loading('Syncing pending notes...', { id: 'sync-progress' })
+      }
+
+      try {
+        const result = await flushOfflineOutbox()
+        const successCount = result.successIds.length
+        const failureCount = Object.keys(result.errors).length
+        const retryCount = result.retriedIds.length
+
+        // Dismiss the loading toast
+        toast.dismiss('sync-progress')
+
+        // Show success toast if any items synced
+        if (successCount > 0) {
+          toast.success(
+            `Successfully synced ${successCount} note${successCount > 1 ? 's' : ''}!`,
+            { duration: 4000 }
+          )
+        }
+
+        // Show retry info if some items need retrying
+        if (retryCount > 0) {
+          toast.info(
+            `${retryCount} note${retryCount > 1 ? 's' : ''} will retry syncing...`,
+            { duration: 3000 }
+          )
+        }
+
+        // Show error toast if any items permanently failed
+        if (failureCount > 0) {
+          toast.error(
+            `Failed to sync ${failureCount} note${failureCount > 1 ? 's' : ''}. Please check your connection.`,
+            { duration: 5000 }
+          )
+        }
+
+        // Update outbox count
+        if (user?.id) setOutboxCount(getOutboxCount(user.id))
+      } catch (error) {
+        console.error('Sync failed with exception:', error)
+        toast.dismiss('sync-progress')
+        toast.error(
+          'Sync failed due to an unexpected error. Will retry later.',
+          {
+            duration: 5000,
+          }
+        )
+      }
+    }
+
+    // Browser online event
+    const onOnline = () => {
+      tryFlush()
+    }
+    window.addEventListener('online', onOnline)
+
+    // SW background sync message
+    const onMessage = (e: MessageEvent) => {
+      if (e?.data?.type === 'sync-outbox') tryFlush()
+    }
+    navigator.serviceWorker?.addEventListener?.('message', onMessage as any)
+
+    // On mount if already online, try flushing quickly
+    tryFlush()
+
+    return () => {
+      window.removeEventListener('online', onOnline)
+      navigator.serviceWorker?.removeEventListener?.(
+        'message',
+        onMessage as any
+      )
+    }
+  }, [flushOfflineOutbox, offline.effectiveOnline, user?.id])
+
+  // Poll outbox count periodically
+  useEffect(() => {
+    const refresh = () => {
+      if (user?.id) setOutboxCount(getOutboxCount(user.id))
+      else setOutboxCount(0)
+    }
+    refresh()
+    const id = window.setInterval(refresh, 5000)
+    return () => window.clearInterval(id)
+  }, [user?.id])
+
   // Handle note rescue with error handling
   const handleRescueNote = useCallback(
     async (noteId: string) => {
@@ -281,35 +437,34 @@ export default function DashboardPage() {
                 <h1 className='text-lg font-medium text-muted-foreground/80'>
                   Gravity Note
                 </h1>
-                {/* Single unified status indicator */}
-                {realtimeState.connectionStatus === 'connecting' ? (
-                  <div className='flex items-center gap-1 text-xs text-blue-600'>
-                    <div className='w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse'></div>
-                    <span className='text-[10px] font-medium uppercase tracking-wide'>
-                      Connecting
-                    </span>
-                  </div>
-                ) : realtimeState.isRealtimeConnected ? (
-                  <div className='flex items-center gap-1 text-xs text-green-600'>
-                    <div className='w-1.5 h-1.5 bg-green-500 rounded-full'></div>
-                    <span className='text-[10px] font-medium uppercase tracking-wide'>
-                      Live
-                    </span>
-                  </div>
-                ) : isOfflineMode ? (
-                  <div className='flex items-center gap-1 text-xs text-amber-600'>
-                    <div className='w-1.5 h-1.5 bg-amber-500 rounded-full'></div>
-                    <span className='text-[10px] font-medium uppercase tracking-wide'>
-                      Offline Mode
-                    </span>
-                  </div>
-                ) : (
-                  <div className='flex items-center gap-1 text-xs text-red-600'>
-                    <div className='w-1.5 h-1.5 bg-red-500 rounded-full'></div>
-                    <span className='text-[10px] font-medium uppercase tracking-wide'>
-                      Disconnected
-                    </span>
-                  </div>
+                {/* Offline Status Indicator */}
+                <OfflineStatusIndicator />
+                {/* Realtime Connection Status - only show when online but realtime has issues */}
+                {offline.effectiveOnline && (
+                  <>
+                    {realtimeState.connectionStatus === 'connecting' ? (
+                      <div className='flex items-center gap-1 text-xs text-blue-600'>
+                        <div className='w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse'></div>
+                        <span className='text-[10px] font-medium uppercase tracking-wide'>
+                          Connecting
+                        </span>
+                      </div>
+                    ) : realtimeState.isRealtimeConnected ? (
+                      <div className='flex items-center gap-1 text-xs text-green-600'>
+                        <div className='w-1.5 h-1.5 bg-green-500 rounded-full'></div>
+                        <span className='text-[10px] font-medium uppercase tracking-wide'>
+                          Live
+                        </span>
+                      </div>
+                    ) : (
+                      <div className='flex items-center gap-1 text-xs text-red-600'>
+                        <div className='w-1.5 h-1.5 bg-red-500 rounded-full'></div>
+                        <span className='text-[10px] font-medium uppercase tracking-wide'>
+                          Realtime Disconnected
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <div className='flex items-center gap-3'>
@@ -326,6 +481,34 @@ export default function DashboardPage() {
                     </kbd>
                   </div>
                 </button>
+                {outboxCount > 0 && (
+                  <div className='flex items-center gap-2'>
+                    <div className='flex items-center gap-1 text-xs text-amber-700 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-md border border-amber-300/60'>
+                      <div className='w-1.5 h-1.5 bg-amber-500 rounded-full'></div>
+                      <span className='text-[10px] font-medium uppercase tracking-wide'>
+                        Pending {outboxCount}
+                      </span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const res = await flushOfflineOutbox()
+                        if (res.successIds.length > 0) {
+                          toast.success(
+                            `Sync success (${res.successIds.length})`
+                          )
+                          setOutboxCount(getOutboxCount(user!.id))
+                        }
+                        if (res.failedIds.length > 0) {
+                          toast.error(`Sync failed (${res.failedIds.length})`)
+                        }
+                      }}
+                      className='text-xs px-2 py-0.5 rounded-md border border-border/50 hover:bg-accent/50 text-muted-foreground'
+                      title='Sync now'
+                    >
+                      Sync now
+                    </button>
+                  </div>
+                )}
                 <ThemeToggle />
                 <UserMenu />
               </div>

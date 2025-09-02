@@ -9,6 +9,8 @@ import {
   useImperativeHandle,
 } from 'react'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/lib/stores/auth'
+import { loadDraft, saveDraft, clearDraft } from '@/lib/offline/drafts'
 import { PlusIcon, LoaderIcon } from 'lucide-react'
 
 interface NoteInputProps {
@@ -35,6 +37,7 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
     ref
   ) => {
     const [content, setContent] = useState('')
+    const { user } = useAuthStore()
     const textareaRef = useRef<HTMLTextAreaElement>(null)
 
     // Expose focus method to parent component via ref
@@ -80,10 +83,23 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       }
     }, [autoFocus, isLoading])
 
-    // Adjust height when component mounts
+    // Load draft on mount (per user) and adjust height
     useEffect(() => {
-      adjustHeight()
-    }, [adjustHeight])
+      // Load saved draft for this user
+      if (user?.id) {
+        const draft = loadDraft(user.id)
+        if (draft?.content) {
+          setContent(draft.content)
+          // Delay to ensure textarea exists before measuring
+          setTimeout(() => adjustHeight(), 0)
+        } else {
+          adjustHeight()
+        }
+      } else {
+        adjustHeight()
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [adjustHeight, user?.id])
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault()
@@ -94,6 +110,8 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       try {
         await onSubmit(trimmedContent)
         setContent('')
+        // Clear draft after successful submission
+        if (user?.id) clearDraft(user.id)
         // Re-focus textarea after successful submission and reset height
         setTimeout(() => {
           if (textareaRef.current) {
@@ -117,7 +135,13 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setContent(e.target.value)
+      const next = e.target.value
+      setContent(next)
+      // Save draft with light debounce
+      if (user?.id) {
+        // micro-debounce via rAF to coalesce rapid typing
+        requestAnimationFrame(() => saveDraft(user.id!, next))
+      }
       // Adjust height after content change
       setTimeout(() => adjustHeight(), 0)
     }
