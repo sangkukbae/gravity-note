@@ -23,6 +23,7 @@ import type { GroupedNotesResponse, TimeGroup } from '@/types/temporal'
 import { shouldHandleSearchShortcut } from '@/lib/utils/keyboard'
 import { useOfflineStatus } from '@/hooks/use-offline-status'
 import { LocalSaveIndicator } from '@/components/ui/local-save-indicator'
+import { toast } from 'sonner'
 // Toast notifications are handled by the parent component
 
 interface NotesContainerProps {
@@ -170,7 +171,7 @@ export const NotesContainer = forwardRef<
           // Toast is handled by the parent component (dashboard)
         } catch (error) {
           console.error('Failed to create note:', error)
-          // Error toast is handled by the parent component (dashboard)
+          toast.error('Failed to save note. Please try again.')
           throw error // Re-throw to keep content in input
         } finally {
           setIsCreating(false)
@@ -298,7 +299,8 @@ export const NotesContainer = forwardRef<
     const handleClearSearch = useCallback(() => {
       if (!externalSearchControl) {
         setInternalSearchQuery('')
-        setIsSearchOpen(false)
+        // Keep search open when clearing so user can continue typing
+        setIsSearchOpen(true)
       }
       setNotes(initialNotes)
     }, [initialNotes, externalSearchControl])
@@ -366,6 +368,13 @@ export const NotesContainer = forwardRef<
                     placeholder='Search all your thoughts...'
                     disabled={!offline.effectiveOnline}
                   />
+                </div>
+              )}
+
+              {/* Gravity indication when many notes present */}
+              {!externalSearchControl && notes.length >= 10 && (
+                <div className='text-xs text-muted-foreground'>
+                  Older thoughts naturally settle below.
                 </div>
               )}
             </div>

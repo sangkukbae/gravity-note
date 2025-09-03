@@ -1,7 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
-import { devtools, persist } from 'zustand/middleware'
+import { devtools, persist, createJSONStorage } from 'zustand/middleware'
 import type { User, Session } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 
@@ -23,15 +23,46 @@ interface AuthActions {
 
 export type AuthStore = AuthState & AuthActions
 
+function getPersistedAuth(): {
+  user: User | null
+  session: Session | null
+} | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem('auth-store')
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return {
+      user: parsed?.state?.user ?? null,
+      session: parsed?.state?.session ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
 export const useAuthStore = create<AuthStore>()(
   devtools(
     persist(
       (set, get) => ({
         // State
-        user: null,
-        session: null,
-        loading: true,
-        initialized: false,
+        ...((): AuthState => {
+          const persisted = getPersistedAuth()
+          if (persisted) {
+            return {
+              user: persisted.user,
+              session: persisted.session,
+              loading: false,
+              initialized: true,
+            }
+          }
+          return {
+            user: null,
+            session: null,
+            loading: true,
+            initialized: false,
+          }
+        })(),
 
         // Actions
         setUser: user => set({ user }),
@@ -96,10 +127,12 @@ export const useAuthStore = create<AuthStore>()(
       }),
       {
         name: 'auth-store',
+        storage: createJSONStorage(() => localStorage),
         partialize: state => ({
           user: state.user,
           session: state.session,
         }),
+        // No onRehydrateStorage: we derive initial state synchronously from localStorage
       }
     )
   )

@@ -34,42 +34,84 @@ export function UserMenu() {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant='ghost'
-          className='h-8 w-8 p-0 rounded-full hover:bg-accent/50 transition-colors touch-manipulation min-h-[44px] min-w-[44px]'
-          aria-label='User menu'
+    <div className='w-full'>
+      {/* Inline user info and sign out button for accessibility/integration */}
+      <div className='flex items-center gap-4 p-4 border-b'>
+        <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary'>
+          {user.user_metadata?.full_name ? (
+            getInitials()
+          ) : (
+            <User className='h-4 w-4' />
+          )}
+        </div>
+        <div className='flex flex-col'>
+          <p className='text-sm font-medium'>{user.email}</p>
+          <p className='text-xs text-muted-foreground'>
+            {user.user_metadata?.full_name || 'User'}
+          </p>
+        </div>
+        <div className='ml-auto'>
+          <Button
+            type='button'
+            variant='ghost'
+            className='flex items-center gap-2 text-destructive'
+            onClick={() => signOut()}
+          >
+            <LogOut className='h-4 w-4' />
+            Sign out
+          </Button>
+        </div>
+      </div>
+
+      {/* Retain dropdown for advanced interactions; mirrors header layout */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant='ghost'
+            className='h-8 w-8 p-0 rounded-full hover:bg-accent/50 transition-colors touch-manipulation min-h-[44px] min-w-[44px]'
+            aria-label='User menu'
+          >
+            <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary'>
+              {user.user_metadata?.full_name ? (
+                getInitials()
+              ) : (
+                <User className='h-4 w-4' />
+              )}
+            </div>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align='end'
+          className='w-56 dropdown-modern'
+          sideOffset={8}
         >
-          <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary'>
-            {user.user_metadata?.full_name ? (
-              getInitials()
-            ) : (
-              <User className='h-4 w-4' />
-            )}
-          </div>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' className='w-56' sideOffset={8}>
-        <DropdownMenuLabel className='font-normal'>
-          <div className='flex flex-col space-y-1'>
-            <p className='text-sm font-medium leading-none'>{user.email}</p>
-            {user.user_metadata?.full_name && (
-              <p className='text-xs leading-none text-muted-foreground'>
-                {user.user_metadata.full_name}
+          <div className='flex items-center gap-4 p-4 border-b'>
+            <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary'>
+              {user.user_metadata?.full_name ? (
+                getInitials()
+              ) : (
+                <User className='h-4 w-4' />
+              )}
+            </div>
+            <div className='flex flex-col'>
+              <p className='text-sm font-medium'>{user.email}</p>
+              <p className='text-xs text-muted-foreground'>
+                {user.user_metadata?.full_name || 'User'}
               </p>
-            )}
+            </div>
           </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => signOut()}
-          className='cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10'
-        >
-          <LogOut className='mr-2 h-4 w-4' />
-          <span>Sign out</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => signOut()}
+            className='relative select-none rounded-sm px-2 py-1.5 text-sm outline-none transition-colors cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10'
+          >
+            <span className='flex items-center gap-2'>
+              <LogOut className='h-4 w-4' />
+              <span>Sign out</span>
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }

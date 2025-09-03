@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { ProtectedRoute } from '@/components/auth/protected-route'
+// Import test utils first to ensure next/navigation is mocked before component import
 import { renderWithProviders, mockRouter } from '../../utils/test-utils'
+import { ProtectedRoute } from '@/components/auth/protected-route'
 import { useAuthStore } from '@/lib/stores/auth'
 
 // Mock the auth store

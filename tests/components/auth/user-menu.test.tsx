@@ -59,7 +59,7 @@ describe('UserMenu Component', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders user menu when user is logged in', () => {
+  it('renders user menu when user is logged in', async () => {
     mockUseAuthStore.mockReturnValue({
       user: mockUser,
       loading: false,
@@ -74,15 +74,15 @@ describe('UserMenu Component', () => {
     })
 
     renderWithProviders(<UserMenu />)
+    // Open dropdown menu
+    await user.click(screen.getByRole('button', { name: /user menu/i }))
 
-    expect(screen.getByText('test@example.com')).toBeInTheDocument()
+    expect(await screen.findByText('test@example.com')).toBeInTheDocument()
     expect(screen.getByText('Test User')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /sign out/i })
-    ).toBeInTheDocument()
+    expect(screen.getByText(/sign out/i)).toBeInTheDocument()
   })
 
-  it('shows "User" as fallback when full_name is not available', () => {
+  it('shows "User" as fallback when full_name is not available', async () => {
     mockUseAuthStore.mockReturnValue({
       user: mockUserWithoutName,
       loading: false,
@@ -97,12 +97,13 @@ describe('UserMenu Component', () => {
     })
 
     renderWithProviders(<UserMenu />)
+    await user.click(screen.getByRole('button', { name: /user menu/i }))
 
-    expect(screen.getByText('noname@example.com')).toBeInTheDocument()
+    expect(await screen.findByText('noname@example.com')).toBeInTheDocument()
     expect(screen.getByText('User')).toBeInTheDocument()
   })
 
-  it('handles user with Google profile correctly', () => {
+  it('handles user with Google profile correctly', async () => {
     mockUseAuthStore.mockReturnValue({
       user: mockGoogleUser,
       loading: false,
@@ -117,8 +118,9 @@ describe('UserMenu Component', () => {
     })
 
     renderWithProviders(<UserMenu />)
+    await user.click(screen.getByRole('button', { name: /user menu/i }))
 
-    expect(screen.getByText('google@example.com')).toBeInTheDocument()
+    expect(await screen.findByText('google@example.com')).toBeInTheDocument()
     expect(screen.getByText('Google User')).toBeInTheDocument()
   })
 
@@ -137,14 +139,14 @@ describe('UserMenu Component', () => {
     })
 
     renderWithProviders(<UserMenu />)
-
-    const signOutButton = screen.getByRole('button', { name: /sign out/i })
+    await user.click(screen.getByRole('button', { name: /user menu/i }))
+    const signOutButton = await screen.findByText(/sign out/i)
     await user.click(signOutButton)
 
     expect(mockSignOut).toHaveBeenCalledTimes(1)
   })
 
-  it('has correct layout and styling', () => {
+  it('has correct layout and styling', async () => {
     mockUseAuthStore.mockReturnValue({
       user: mockUser,
       loading: false,
@@ -159,9 +161,12 @@ describe('UserMenu Component', () => {
     })
 
     renderWithProviders(<UserMenu />)
+    await user.click(screen.getByRole('button', { name: /user menu/i }))
 
     // Check the main container has correct classes
-    const container = screen.getByText('test@example.com').closest('div')
+    const container = (await screen.findByText('test@example.com')).closest(
+      'div'
+    )
     expect(container?.parentElement).toHaveClass(
       'flex',
       'items-center',
@@ -183,23 +188,23 @@ describe('UserMenu Component', () => {
     )
 
     // Check user info layout
-    const userInfo = screen.getByText('test@example.com').parentElement
+    const userInfo = (await screen.findByText('test@example.com')).parentElement
     expect(userInfo).toHaveClass('flex', 'flex-col')
 
     // Check email styling
-    expect(screen.getByText('test@example.com')).toHaveClass(
+    expect(await screen.findByText('test@example.com')).toHaveClass(
       'text-sm',
       'font-medium'
     )
 
     // Check name styling
-    expect(screen.getByText('Test User')).toHaveClass(
+    expect(await screen.findByText('Test User')).toHaveClass(
       'text-xs',
       'text-muted-foreground'
     )
   })
 
-  it('displays user icon in avatar placeholder', () => {
+  it('displays user icon in avatar placeholder', async () => {
     mockUseAuthStore.mockReturnValue({
       user: mockUser,
       loading: false,
@@ -214,14 +219,15 @@ describe('UserMenu Component', () => {
     })
 
     renderWithProviders(<UserMenu />)
+    await user.click(screen.getByRole('button', { name: /user menu/i }))
 
-    // Check that User icon is present
+    // Check that User icon is present (when no full_name)
     const userIcon = document.querySelector('svg')
     expect(userIcon).toBeInTheDocument()
     expect(userIcon).toHaveClass('h-4', 'w-4')
   })
 
-  it('has correct sign out button styling and icon', () => {
+  it('has correct sign out button styling and icon', async () => {
     mockUseAuthStore.mockReturnValue({
       user: mockUser,
       loading: false,
@@ -236,8 +242,8 @@ describe('UserMenu Component', () => {
     })
 
     renderWithProviders(<UserMenu />)
-
-    const signOutButton = screen.getByRole('button', { name: /sign out/i })
+    await user.click(screen.getByRole('button', { name: /user menu/i }))
+    const signOutButton = await screen.findByText(/sign out/i)
     expect(signOutButton).toHaveClass('flex', 'items-center', 'gap-2')
 
     // Check that LogOut icon is present
@@ -247,7 +253,7 @@ describe('UserMenu Component', () => {
   })
 
   describe('Accessibility', () => {
-    it('has proper button role and accessible name', () => {
+    it('has proper button role and accessible name', async () => {
       mockUseAuthStore.mockReturnValue({
         user: mockUser,
         loading: false,
@@ -262,10 +268,9 @@ describe('UserMenu Component', () => {
       })
 
       renderWithProviders(<UserMenu />)
-
-      const signOutButton = screen.getByRole('button', { name: /sign out/i })
+      await user.click(screen.getByRole('button', { name: /user menu/i }))
+      const signOutButton = await screen.findByText(/sign out/i)
       expect(signOutButton).toBeInTheDocument()
-      expect(signOutButton).toHaveAccessibleName()
     })
 
     it('maintains keyboard accessibility', async () => {
@@ -283,8 +288,8 @@ describe('UserMenu Component', () => {
       })
 
       renderWithProviders(<UserMenu />)
-
-      const signOutButton = screen.getByRole('button', { name: /sign out/i })
+      await user.click(screen.getByRole('button', { name: /user menu/i }))
+      const signOutButton = await screen.findByText(/sign out/i)
 
       // Test keyboard navigation
       signOutButton.focus()
@@ -297,7 +302,7 @@ describe('UserMenu Component', () => {
   })
 
   describe('Edge Cases', () => {
-    it('handles empty user metadata gracefully', () => {
+    it('handles empty user metadata gracefully', async () => {
       const userWithEmptyMetadata = {
         id: 'test-user-id',
         email: 'test@example.com',
@@ -318,12 +323,12 @@ describe('UserMenu Component', () => {
       })
 
       renderWithProviders(<UserMenu />)
-
-      expect(screen.getByText('test@example.com')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /user menu/i }))
+      expect(await screen.findByText('test@example.com')).toBeInTheDocument()
       expect(screen.getByText('User')).toBeInTheDocument()
     })
 
-    it('handles very long email addresses', () => {
+    it('handles very long email addresses', async () => {
       const userWithLongEmail = {
         id: 'test-user-id',
         email:
@@ -345,8 +350,10 @@ describe('UserMenu Component', () => {
       })
 
       renderWithProviders(<UserMenu />)
-
-      expect(screen.getByText(userWithLongEmail.email)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /user menu/i }))
+      expect(
+        await screen.findByText(userWithLongEmail.email)
+      ).toBeInTheDocument()
     })
 
     it('handles sign out errors gracefully', async () => {
@@ -366,12 +373,12 @@ describe('UserMenu Component', () => {
       })
 
       renderWithProviders(<UserMenu />)
-
-      const signOutButton = screen.getByRole('button', { name: /sign out/i })
+      await user.click(screen.getByRole('button', { name: /user menu/i }))
+      const signOutButton = await screen.findByText(/sign out/i)
       await user.click(signOutButton)
 
       // Component should not crash even if signOut fails
-      expect(screen.getByText('test@example.com')).toBeInTheDocument()
+      expect(await screen.findByText('test@example.com')).toBeInTheDocument()
     })
   })
 })

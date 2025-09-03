@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+// Import test utils first to ensure next/navigation is mocked before component imports
 import { renderWithProviders, mockRouter } from '../utils/test-utils'
 import { AuthForm } from '@/components/auth/auth-form'
 import { ProtectedRoute } from '@/components/auth/protected-route'
@@ -19,11 +20,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: () => mockSupabaseClient,
 }))
 
-// Mock window.location
-Object.defineProperty(window, 'location', {
-  value: { origin: 'http://localhost:3000' },
-  writable: true,
-})
+// window.location is provided by tests/setup.ts
 
 describe('Authentication Integration Tests', () => {
   const user = userEvent.setup()
@@ -127,7 +124,7 @@ describe('Authentication Integration Tests', () => {
           email: 'newuser@example.com',
           password: 'password123',
           options: {
-            emailRedirectTo: 'http://localhost:3000/auth/callback',
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         })
       })
@@ -173,7 +170,7 @@ describe('Authentication Integration Tests', () => {
         expect(mockSupabaseClient.auth.signInWithOAuth).toHaveBeenCalledWith({
           provider: 'google',
           options: {
-            redirectTo: 'http://localhost:3000/auth/callback',
+            redirectTo: `${window.location.origin}/auth/callback`,
           },
         })
       })
@@ -337,7 +334,7 @@ describe('Authentication Integration Tests', () => {
       expect(storedData.state.session).toEqual(mockSession)
     })
 
-    it('restores authentication state on app restart', () => {
+    it('restores authentication state on app restart', async () => {
       // Pre-populate localStorage with authenticated state
       const persistedState = {
         state: {
@@ -349,10 +346,15 @@ describe('Authentication Integration Tests', () => {
       localStorage.setItem('auth-store', JSON.stringify(persistedState))
 
       // Create new store instance (simulating app restart)
-      const store = useAuthStore.getState()
-
-      expect(store.user).toEqual(mockUser)
-      expect(store.session).toEqual(mockSession)
+      // Wait for persisted store to hydrate
+      await waitFor(
+        () => {
+          const store = useAuthStore.getState()
+          expect(store.user).toEqual(mockUser)
+          expect(store.session).toEqual(mockSession)
+        },
+        { timeout: 3000 }
+      )
     })
   })
 

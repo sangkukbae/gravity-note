@@ -12,6 +12,7 @@ interface TemporalBoundaries {
 // Utility functions that should exist in the codebase
 function getTemporalBoundaries(): TemporalBoundaries {
   const now = new Date()
+
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
   yesterday.setHours(0, 0, 0, 0)
@@ -20,8 +21,9 @@ function getTemporalBoundaries(): TemporalBoundaries {
   lastWeek.setDate(now.getDate() - 7)
   lastWeek.setHours(0, 0, 0, 0)
 
+  // Align with current implementation: 30 days ago (not calendar month)
   const lastMonth = new Date(now)
-  lastMonth.setMonth(now.getMonth() - 1)
+  lastMonth.setDate(now.getDate() - 30)
   lastMonth.setHours(0, 0, 0, 0)
 
   return { yesterday, lastWeek, lastMonth }
@@ -61,78 +63,129 @@ describe('Temporal Boundary Calculations', () => {
   })
 
   describe('getTemporalBoundaries', () => {
-    it('should calculate correct yesterday boundary', () => {
-      expect(boundaries.yesterday).toEqual(new Date('2025-08-29T00:00:00Z'))
+    it('should calculate correct yesterday boundary (local start of day)', () => {
+      const expected = new Date(mockNow)
+      expected.setDate(mockNow.getDate() - 1)
+      expected.setHours(0, 0, 0, 0)
+      expect(boundaries.yesterday.getTime()).toBe(expected.getTime())
     })
 
-    it('should calculate correct last week boundary', () => {
-      expect(boundaries.lastWeek).toEqual(new Date('2025-08-23T00:00:00Z'))
+    it('should calculate correct last week boundary (7 days, local start of day)', () => {
+      const expected = new Date(mockNow)
+      expected.setDate(mockNow.getDate() - 7)
+      expected.setHours(0, 0, 0, 0)
+      expect(boundaries.lastWeek.getTime()).toBe(expected.getTime())
     })
 
-    it('should calculate correct last month boundary', () => {
-      expect(boundaries.lastMonth).toEqual(new Date('2025-07-30T00:00:00Z'))
+    it('should calculate correct last month boundary (30 days, local start of day)', () => {
+      const expected = new Date(mockNow)
+      expected.setDate(mockNow.getDate() - 30)
+      expected.setHours(0, 0, 0, 0)
+      expect(boundaries.lastMonth.getTime()).toBe(expected.getTime())
     })
   })
 
   describe('classifyNoteByTime', () => {
     it('should classify recent notes as "yesterday"', () => {
-      const recentNote = '2025-08-30T10:00:00Z'
-      expect(classifyNoteByTime(recentNote, boundaries)).toBe('yesterday')
+      const recent = new Date(
+        boundaries.yesterday.getTime() + 12 * 60 * 60 * 1000
+      )
+      expect(classifyNoteByTime(recent.toISOString(), boundaries)).toBe(
+        'yesterday'
+      )
     })
 
     it('should classify yesterday notes as "yesterday"', () => {
-      const yesterdayNote = '2025-08-29T12:00:00Z'
-      expect(classifyNoteByTime(yesterdayNote, boundaries)).toBe('yesterday')
+      const yesterdayMidday = new Date(
+        boundaries.yesterday.getTime() + 12 * 60 * 60 * 1000
+      )
+      expect(
+        classifyNoteByTime(yesterdayMidday.toISOString(), boundaries)
+      ).toBe('yesterday')
     })
 
     it('should classify week-old notes as "last_week"', () => {
-      const weekOldNote = '2025-08-25T12:00:00Z'
-      expect(classifyNoteByTime(weekOldNote, boundaries)).toBe('last_week')
+      const weekWindow = new Date(
+        boundaries.lastWeek.getTime() + 12 * 60 * 60 * 1000
+      )
+      expect(classifyNoteByTime(weekWindow.toISOString(), boundaries)).toBe(
+        'last_week'
+      )
     })
 
     it('should classify month-old notes as "last_month"', () => {
-      const monthOldNote = '2025-08-01T12:00:00Z'
-      expect(classifyNoteByTime(monthOldNote, boundaries)).toBe('last_month')
+      const monthWindow = new Date(
+        boundaries.lastMonth.getTime() + 12 * 60 * 60 * 1000
+      )
+      expect(classifyNoteByTime(monthWindow.toISOString(), boundaries)).toBe(
+        'last_month'
+      )
     })
 
     it('should classify very old notes as "earlier"', () => {
-      const oldNote = '2025-06-15T12:00:00Z'
-      expect(classifyNoteByTime(oldNote, boundaries)).toBe('earlier')
+      const old = new Date(boundaries.lastMonth.getTime() - 24 * 60 * 60 * 1000)
+      expect(classifyNoteByTime(old.toISOString(), boundaries)).toBe('earlier')
     })
 
     it('should handle edge case at yesterday boundary', () => {
-      const boundaryNote = '2025-08-29T00:00:00Z'
-      expect(classifyNoteByTime(boundaryNote, boundaries)).toBe('yesterday')
+      expect(
+        classifyNoteByTime(boundaries.yesterday.toISOString(), boundaries)
+      ).toBe('yesterday')
     })
 
     it('should handle edge case just before yesterday boundary', () => {
-      const beforeBoundaryNote = '2025-08-28T23:59:59Z'
-      expect(classifyNoteByTime(beforeBoundaryNote, boundaries)).toBe(
+      const justBefore = new Date(boundaries.yesterday.getTime() - 1000)
+      expect(classifyNoteByTime(justBefore.toISOString(), boundaries)).toBe(
         'last_week'
       )
     })
 
     it('should handle edge case at week boundary', () => {
-      const weekBoundaryNote = '2025-08-23T00:00:00Z'
-      expect(classifyNoteByTime(weekBoundaryNote, boundaries)).toBe('last_week')
+      expect(
+        classifyNoteByTime(boundaries.lastWeek.toISOString(), boundaries)
+      ).toBe('last_week')
     })
 
     it('should handle edge case at month boundary', () => {
-      const monthBoundaryNote = '2025-07-30T00:00:00Z'
-      expect(classifyNoteByTime(monthBoundaryNote, boundaries)).toBe(
-        'last_month'
-      )
+      expect(
+        classifyNoteByTime(boundaries.lastMonth.toISOString(), boundaries)
+      ).toBe('last_month')
     })
   })
 
   describe('Temporal Grouping Logic', () => {
     it('should maintain consistent ordering within groups', () => {
       const notes = [
-        { id: '1', updated_at: '2025-08-30T10:00:00Z' },
-        { id: '2', updated_at: '2025-08-29T15:00:00Z' },
-        { id: '3', updated_at: '2025-08-25T12:00:00Z' },
-        { id: '4', updated_at: '2025-08-01T09:00:00Z' },
-        { id: '5', updated_at: '2025-06-15T14:00:00Z' },
+        {
+          id: '1',
+          updated_at: new Date(
+            boundaries.yesterday.getTime() + 10 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+        {
+          id: '2',
+          updated_at: new Date(
+            boundaries.yesterday.getTime() + 15 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+        {
+          id: '3',
+          updated_at: new Date(
+            boundaries.lastWeek.getTime() + 12 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+        {
+          id: '4',
+          updated_at: new Date(
+            boundaries.lastMonth.getTime() + 9 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+        {
+          id: '5',
+          updated_at: new Date(
+            boundaries.lastMonth.getTime() - 15 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        },
       ]
 
       const classifications = notes.map(note => ({
@@ -151,14 +204,10 @@ describe('Temporal Boundary Calculations', () => {
   describe('Error Handling', () => {
     it('should handle invalid date strings gracefully', () => {
       const invalidDate = 'not-a-date'
-      // Should not throw, but classify as earlier (fallback)
+      // Should not throw, and fallback to 'earlier'
       expect(() => classifyNoteByTime(invalidDate, boundaries)).not.toThrow()
-
-      // Invalid dates typically become "earlier" due to NaN comparison behavior
       const result = classifyNoteByTime(invalidDate, boundaries)
-      expect(['earlier', 'yesterday', 'last_week', 'last_month']).toContain(
-        result
-      )
+      expect(result).toBe('earlier')
     })
 
     it('should handle empty date strings', () => {
