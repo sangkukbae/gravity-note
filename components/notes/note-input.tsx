@@ -11,7 +11,11 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth'
 import { loadDraft, saveDraft, clearDraft } from '@/lib/offline/drafts'
-import { PlusIcon, LoaderIcon } from 'lucide-react'
+import { PlusIcon, LoaderIcon, AlertTriangleIcon } from 'lucide-react'
+import {
+  useNoteContentValidation,
+  useContentStats,
+} from '@/hooks/use-validation'
 
 interface NoteInputProps {
   onSubmit: (content: string) => Promise<void>
@@ -39,6 +43,14 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
     const [content, setContent] = useState('')
     const { user } = useAuthStore()
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+    // Validation hooks
+    const validation = useNoteContentValidation({
+      realTimeValidation: true,
+      debounceMs: 500,
+      enableStats: true,
+    })
+    const contentStats = useContentStats(content)
 
     // Expose focus method to parent component via ref
     useImperativeHandle(
@@ -107,9 +119,22 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       const trimmedContent = content.trim()
       if (!trimmedContent || isLoading) return
 
+      // Validate content before submission
+      const validationResult = validation.validateForSubmit(trimmedContent)
+
+      if (!validationResult.success) {
+        // Set validation error
+        validation.setError(
+          validationResult.error?.message || 'Invalid content',
+          validationResult.error?.type
+        )
+        return
+      }
+
       try {
-        await onSubmit(trimmedContent)
+        await onSubmit(validationResult.data?.content || trimmedContent)
         setContent('')
+        validation.reset() // Reset validation state
         // Clear draft after successful submission
         if (user?.id) clearDraft(user.id)
         // Re-focus textarea after successful submission and reset height
@@ -137,6 +162,12 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const next = e.target.value
       setContent(next)
+
+      // Real-time validation
+      if (validation.state.hasBeenValidated || next.trim().length > 0) {
+        validation.validateAsync(next)
+      }
+
       // Save draft with light debounce
       if (user?.id) {
         // micro-debounce via rAF to coalesce rapid typing
@@ -145,6 +176,17 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       // Adjust height after content change
       setTimeout(() => adjustHeight(), 0)
     }
+
+    // Calculate validation state for UI
+    const hasValidationError = validation.state.error !== null
+    const isValidationLoading = validation.state.isValidating
+    const showCharacterCount =
+      contentStats.percentage > 70 || hasValidationError
+    const canSubmit =
+      content.trim() &&
+      !isLoading &&
+      !hasValidationError &&
+      contentStats.isValid
 
     return (
       <div className={cn('w-full', className)}>
@@ -167,7 +209,11 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                   // Focus ring styling for accessibility
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                   // Border and background styling to match shadcn/ui textarea
-                  'rounded-md border border-input bg-background',
+                  'rounded-md border bg-background',
+                  // Validation-based border colors
+                  hasValidationError
+                    ? 'border-destructive focus-visible:ring-destructive'
+                    : 'border-input',
                   'placeholder:text-muted-foreground',
                   // Hide scrollbar initially
                   'overflow-y-hidden',
@@ -184,7 +230,7 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
               {/* Integrated Submit Button */}
               <button
                 type='submit'
-                disabled={!content.trim() || isLoading}
+                disabled={!canSubmit}
                 className={cn(
                   'absolute flex items-center justify-center',
                   'w-8 h-8 rounded-md',
@@ -209,6 +255,46 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
               </button>
             </div>
           </form>
+
+          {/* Validation Feedback */}
+          {(hasValidationError || showCharacterCount) && (
+            <div className='mt-2 flex items-center justify-between text-xs'>
+              {/* Error Message */}
+              {hasValidationError && (
+                <div className='flex items-center gap-1 text-destructive'>
+                  <AlertTriangleIcon className='h-3 w-3' />
+                  <span>{validation.state.error}</span>
+                </div>
+              )}
+
+              {/* Character Count */}
+              {showCharacterCount && !hasValidationError && (
+                <div
+                  className={cn(
+                    'flex items-center gap-1',
+                    contentStats.showWarning
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  <span>
+                    {contentStats.length}/{contentStats.maxLength}
+                  </span>
+                  {contentStats.showWarning && (
+                    <AlertTriangleIcon className='h-3 w-3' />
+                  )}
+                </div>
+              )}
+
+              {/* Loading indicator */}
+              {isValidationLoading && (
+                <div className='flex items-center gap-1 text-muted-foreground'>
+                  <LoaderIcon className='h-3 w-3 animate-spin' />
+                  <span>Validating...</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     )

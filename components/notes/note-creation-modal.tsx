@@ -12,7 +12,11 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { PlusIcon, LoaderIcon, X } from 'lucide-react'
+import { PlusIcon, LoaderIcon, X, AlertTriangleIcon } from 'lucide-react'
+import {
+  useNoteContentValidation,
+  useContentStats,
+} from '@/hooks/use-validation'
 
 interface NoteCreationModalProps {
   isOpen: boolean
@@ -45,6 +49,14 @@ export const NoteCreationModal = forwardRef<
     const [content, setContent] = useState('')
     const [hasUnsavedContent, setHasUnsavedContent] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+    // Validation hooks
+    const validation = useNoteContentValidation({
+      realTimeValidation: true,
+      debounceMs: 300,
+      enableStats: true,
+    })
+    const contentStats = useContentStats(content)
 
     // Expose methods to parent component via ref
     useImperativeHandle(
@@ -108,10 +120,23 @@ export const NoteCreationModal = forwardRef<
       const trimmedContent = content.trim()
       if (!trimmedContent || isLoading) return
 
+      // Validate content before submission
+      const validationResult = validation.validateForSubmit(trimmedContent)
+
+      if (!validationResult.success) {
+        // Set validation error
+        validation.setError(
+          validationResult.error?.message || 'Invalid content',
+          validationResult.error?.type
+        )
+        return
+      }
+
       try {
-        await onSubmit(trimmedContent)
+        await onSubmit(validationResult.data?.content || trimmedContent)
         setContent('')
         setHasUnsavedContent(false)
+        validation.reset() // Reset validation state
         onOpenChange(false) // Close modal on successful submission
       } catch (error) {
         console.error('Failed to create note:', error)
@@ -148,10 +173,28 @@ export const NoteCreationModal = forwardRef<
 
     // Handle content change with auto-resize
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setContent(e.target.value)
+      const next = e.target.value
+      setContent(next)
+
+      // Real-time validation
+      if (validation.state.hasBeenValidated || next.trim().length > 0) {
+        validation.validateAsync(next)
+      }
+
       // Adjust height after content change
       setTimeout(() => adjustHeight(), 0)
     }
+
+    // Calculate validation state for UI
+    const hasValidationError = validation.state.error !== null
+    const isValidationLoading = validation.state.isValidating
+    const showCharacterCount =
+      contentStats.percentage > 50 || hasValidationError
+    const canSubmit =
+      content.trim() &&
+      !isLoading &&
+      !hasValidationError &&
+      contentStats.isValid
 
     // Note: avoid global Escape prevention to not interfere with other Radix layers
 
@@ -208,28 +251,68 @@ export const NoteCreationModal = forwardRef<
                   'min-h-[120px] resize-none border-0 p-0 text-base shadow-none focus-visible:ring-0',
                   'placeholder:text-muted-foreground/60',
                   'overflow-y-hidden',
+                  // Validation styling - subtle since we don't have borders in modal
+                  hasValidationError && 'bg-destructive/5',
                   isLoading && 'opacity-50'
                 )}
                 aria-label='Note content'
                 autoComplete='off'
                 spellCheck={true}
               />
+
+              {/* Validation Feedback */}
+              {hasValidationError && (
+                <div className='flex items-center gap-2 text-sm text-destructive'>
+                  <AlertTriangleIcon className='h-4 w-4' />
+                  <span>{validation.state.error}</span>
+                </div>
+              )}
             </form>
           </div>
 
           {/* Footer */}
           <div className='flex items-center justify-between border-t border-border p-4 md:p-6'>
-            <div className='flex items-center gap-2 text-sm text-muted-foreground'>
-              <span>Press</span>
-              <kbd className='rounded bg-muted px-1.5 py-0.5 text-xs font-mono'>
-                {navigator.userAgent.includes('Mac') ? '⌘' : 'Ctrl'} + Enter
-              </kbd>
-              <span>to save</span>
+            <div className='flex items-center gap-4'>
+              {/* Keyboard hint */}
+              <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+                <span>Press</span>
+                <kbd className='rounded bg-muted px-1.5 py-0.5 text-xs font-mono'>
+                  {typeof navigator !== 'undefined' &&
+                  navigator.userAgent.includes('Mac')
+                    ? '⌘'
+                    : 'Ctrl'}{' '}
+                  + Enter
+                </kbd>
+                <span>to save</span>
+              </div>
+
+              {/* Character count */}
+              {showCharacterCount && (
+                <div
+                  className={cn(
+                    'text-xs',
+                    contentStats.showWarning
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {contentStats.length}/{contentStats.maxLength}
+                  {contentStats.showWarning && ' ⚠️'}
+                </div>
+              )}
+
+              {/* Validation loading */}
+              {isValidationLoading && (
+                <div className='flex items-center gap-1 text-xs text-muted-foreground'>
+                  <LoaderIcon className='h-3 w-3 animate-spin' />
+                  <span>Validating...</span>
+                </div>
+              )}
             </div>
 
             <Button
               onClick={handleSubmit}
-              disabled={!content.trim() || isLoading}
+              disabled={!canSubmit}
               className='min-w-[80px]'
             >
               {isLoading ? (
