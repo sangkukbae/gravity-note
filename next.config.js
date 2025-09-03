@@ -1,3 +1,5 @@
+const { withSentryConfig } = require('@sentry/nextjs')
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
@@ -304,4 +306,50 @@ const nextConfig = {
   }),
 }
 
-module.exports = withPWA(nextConfig)
+// Sentry configuration options
+const sentryWebpackPluginOptions = {
+  // Only upload source maps in production builds
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT || 'gravity-note',
+
+  // Authentication token for Sentry
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Sentry CLI configuration
+  silent: false, // Can be used to suppress logs
+  dryRun: process.env.NODE_ENV === 'development', // Don't upload in development
+
+  // Source map upload configuration
+  include: ['.next/static/chunks/', '.next/static/media/', '.next/server/'],
+
+  // File patterns to ignore during upload
+  ignore: [
+    'node_modules',
+    'cypress',
+    'test',
+    '**/*.test.js',
+    '**/*.test.ts',
+    '**/*.test.tsx',
+  ],
+
+  // Release configuration
+  release:
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+
+  // Source map configuration
+  widenClientFileUpload: true,
+  hideSourceMaps: true, // Hide source maps from being publicly accessible
+  disableLogger: process.env.NODE_ENV === 'production',
+
+  // Performance and reliability
+  errorHandler: (err, invokeErr, compilation) => {
+    compilation.warnings.push('Sentry CLI Plugin: ' + err.message)
+  },
+}
+
+// Export configuration with proper plugin chaining
+module.exports = withSentryConfig(
+  withPWA(nextConfig),
+  sentryWebpackPluginOptions
+)
