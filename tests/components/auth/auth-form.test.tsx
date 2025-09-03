@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthForm } from '@/components/auth/auth-form'
+// Import test utils first to ensure next/navigation is mocked before component import
 import { renderWithProviders, mockRouter } from '../../utils/test-utils'
+import { AuthForm } from '@/components/auth/auth-form'
 import { createMockAuthClient, mockAuthError } from '../../mocks/supabase'
 
 // Mock the Supabase client
@@ -11,13 +12,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: () => mockSupabaseClient,
 }))
 
-// Mock window.location
-Object.defineProperty(window, 'location', {
-  value: {
-    origin: 'http://localhost:3000',
-  },
-  writable: true,
-})
+// window.location is provided by tests/setup.ts
 
 describe('AuthForm Component', () => {
   const user = userEvent.setup()
@@ -241,7 +236,7 @@ describe('AuthForm Component', () => {
           email: 'newuser@example.com',
           password: 'password123',
           options: {
-            emailRedirectTo: 'http://localhost:3000/auth/callback',
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         })
       })
@@ -302,7 +297,7 @@ describe('AuthForm Component', () => {
         expect(mockSupabaseClient.auth.signInWithOAuth).toHaveBeenCalledWith({
           provider: 'google',
           options: {
-            redirectTo: 'http://localhost:3000/auth/callback',
+            redirectTo: `${window.location.origin}/auth/callback`,
           },
         })
       })

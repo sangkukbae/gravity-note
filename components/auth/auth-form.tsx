@@ -109,7 +109,10 @@ export function AuthForm({ mode }: AuthFormProps) {
               type='email'
               placeholder='Enter your email'
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => {
+                setEmail(e.target.value)
+                if (error) setError(null)
+              }}
               required
               disabled={loading}
             />
@@ -122,10 +125,14 @@ export function AuthForm({ mode }: AuthFormProps) {
               type='password'
               placeholder='Enter your password'
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => {
+                setPassword(e.target.value)
+                if (error) setError(null)
+              }}
               required
               disabled={loading}
               minLength={6}
+              pattern='.{6,}'
             />
           </div>
 
@@ -142,7 +149,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           )}
 
           <Button type='submit' className='w-full' disabled={loading}>
-            {loading ? 'Loading...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
+            {mode === 'signin' ? 'Sign In' : 'Sign Up'}
           </Button>
         </form>
 
@@ -190,6 +197,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             <>
               Don&apos;t have an account?{' '}
               <Button
+                type='button'
                 variant='link'
                 className='p-0'
                 onClick={() => router.push('/auth/signup')}
@@ -201,6 +209,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             <>
               Already have an account?{' '}
               <Button
+                type='button'
                 variant='link'
                 className='p-0'
                 onClick={() => router.push('/auth/signin')}

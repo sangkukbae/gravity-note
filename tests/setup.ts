@@ -32,23 +32,26 @@ beforeAll(() => {
     disconnect: vi.fn(),
   }))
 
-  // Mock window.location
-  Object.defineProperty(window, 'location', {
-    value: {
-      origin: 'http://localhost:3000',
-      href: 'http://localhost:3000',
-      hostname: 'localhost',
-      port: '3000',
-      protocol: 'http:',
-      pathname: '/',
-      search: '',
-      hash: '',
-      assign: vi.fn(),
-      replace: vi.fn(),
-      reload: vi.fn(),
-    },
-    writable: true,
-  })
+  // Patch window.location methods; rely on JSDOM's default origin
+  try {
+    window.location.assign = vi.fn()
+    window.location.replace = vi.fn()
+    window.location.reload = vi.fn()
+  } catch {}
+
+  // Ensure we appear online in tests
+  try {
+    Object.defineProperty(navigator, 'onLine', {
+      value: true,
+      configurable: true,
+    })
+  } catch {}
+
+  // Default fetch mock to succeed (used by offline ping)
+  if (!global.fetch || !vi.isMockFunction(global.fetch)) {
+    // @ts-ignore
+    global.fetch = vi.fn(async () => new Response('', { status: 200 }))
+  }
 
   // Mock crypto for secure random generation
   Object.defineProperty(window, 'crypto', {
