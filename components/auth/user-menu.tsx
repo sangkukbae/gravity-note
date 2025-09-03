@@ -34,35 +34,7 @@ export function UserMenu() {
   }
 
   return (
-    <div className='w-full'>
-      {/* Inline user info and sign out button for accessibility/integration */}
-      <div className='flex items-center gap-4 p-4 border-b'>
-        <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary'>
-          {user.user_metadata?.full_name ? (
-            getInitials()
-          ) : (
-            <User className='h-4 w-4' />
-          )}
-        </div>
-        <div className='flex flex-col'>
-          <p className='text-sm font-medium'>{user.email}</p>
-          <p className='text-xs text-muted-foreground'>
-            {user.user_metadata?.full_name || 'User'}
-          </p>
-        </div>
-        <div className='ml-auto'>
-          <Button
-            type='button'
-            variant='ghost'
-            className='flex items-center gap-2 text-destructive'
-            onClick={() => signOut()}
-          >
-            <LogOut className='h-4 w-4' />
-            Sign out
-          </Button>
-        </div>
-      </div>
-
+    <div>
       {/* Retain dropdown for advanced interactions; mirrors header layout */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -85,7 +57,7 @@ export function UserMenu() {
           className='w-56 dropdown-modern'
           sideOffset={8}
         >
-          <div className='flex items-center gap-4 p-4 border-b'>
+          <div className='flex items-center gap-4 p-4 '>
             <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary'>
               {user.user_metadata?.full_name ? (
                 getInitials()
