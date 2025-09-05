@@ -1,3 +1,4 @@
+import '../instrumentation-client'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
@@ -6,6 +7,9 @@ import { QueryProvider } from '@/lib/providers/query-provider'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
 import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
+import { GlobalErrorBoundary } from '@/components/error-boundary/global-error-boundary'
+import { ErrorContextProvider } from '@/contexts/error-context'
+import { SentryProvider } from '@/components/providers/sentry-provider'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -133,41 +137,61 @@ export default function RootLayout({
   return (
     <html lang='en' className={inter.variable} suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
-        <ThemeProvider
-          attribute='class'
-          defaultTheme='system'
-          enableSystem
-          disableTransitionOnChange
-        >
-          <QueryProvider>
-            <AuthProvider>
-              <div id='root'>{children}</div>
-              {/* Register Service Worker for offline support (guarded by feature flag) */}
-              <ServiceWorkerRegister />
-              <Toaster
-                position='bottom-center'
-                richColors
-                // closeButton
-                expand={false}
-                offset={24}
-                toastOptions={{
-                  duration: 3000,
-                  style: {
-                    background: 'white',
-                    border: '1px solid #e5e5e5',
-                    color: '#171717',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    padding: '12px 16px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                  },
-                  className:
-                    'dark:!bg-neutral-800 dark:!border-neutral-700 dark:!text-neutral-100',
-                }}
-              />
-            </AuthProvider>
-          </QueryProvider>
-        </ThemeProvider>
+        <SentryProvider>
+          <ThemeProvider
+            attribute='class'
+            defaultTheme='system'
+            enableSystem
+            disableTransitionOnChange
+          >
+            <QueryProvider>
+              <AuthProvider>
+                <ErrorContextProvider
+                  config={{
+                    enableToasts: true,
+                    enableReporting: process.env.NODE_ENV === 'production',
+                    reportingEndpoint: '/api/errors',
+                    enableRetry: true,
+                    enableReload: true,
+                    enableNavigation: true,
+                    context: 'app',
+                    operation: 'general',
+                  }}
+                >
+                  <GlobalErrorBoundary
+                    enableSentryLogging={true}
+                    maxRetries={3}
+                  >
+                    <div id='root'>{children}</div>
+                  </GlobalErrorBoundary>
+                  {/* Register Service Worker for offline support (guarded by feature flag) */}
+                  <ServiceWorkerRegister />
+                  <Toaster
+                    position='bottom-center'
+                    richColors
+                    // closeButton
+                    expand={false}
+                    offset={24}
+                    toastOptions={{
+                      duration: 4000, // Increased for better UX with error toasts
+                      style: {
+                        background: 'white',
+                        border: '1px solid #e5e5e5',
+                        color: '#171717',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        padding: '12px 16px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                      },
+                      className:
+                        'dark:!bg-neutral-800 dark:!border-neutral-700 dark:!text-neutral-100',
+                    }}
+                  />
+                </ErrorContextProvider>
+              </AuthProvider>
+            </QueryProvider>
+          </ThemeProvider>
+        </SentryProvider>
       </body>
     </html>
   )

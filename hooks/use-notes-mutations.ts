@@ -24,6 +24,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
 import { useUnifiedSearch } from './use-unified-search'
 import { useOfflineStatus } from './use-offline-status'
+import { useNetworkStatus } from './use-network-status'
 import {
   createOutboxItem,
   enqueue as enqueueOutbox,
@@ -31,6 +32,17 @@ import {
 } from '@/lib/offline/outbox'
 import type { FlushHandler } from '@/lib/offline/outbox'
 import { syncQueuedNotes } from '@/lib/offline/sync'
+import {
+  classifyNetworkError,
+  isRetryableNetworkError,
+  retryWithBackoff,
+  NetworkError,
+  type NetworkErrorDetails,
+} from '@/lib/errors/network-errors'
+import {
+  classifyError,
+  formatErrorForLogging,
+} from '@/lib/errors/classification'
 
 function cryptoRandomId(): string {
   const cryptoObj =
@@ -42,23 +54,85 @@ function cryptoRandomId(): string {
   return `${Math.random().toString(36).slice(2)}_${Date.now()}`
 }
 
-async function safeReadError(res: Response): Promise<string | null> {
+/**
+ * Enhanced error reading with network error classification
+ */
+async function safeReadNetworkError(
+  res: Response,
+  requestDetails?: Partial<NetworkErrorDetails>
+): Promise<NetworkError> {
+  const details: NetworkErrorDetails = {
+    httpStatus: res.status,
+    httpStatusText: res.statusText,
+    responseHeaders: Object.fromEntries(res.headers.entries()),
+    ...requestDetails,
+  }
+
+  let errorMessage: string
   try {
     const text = await res.text()
     try {
       const json = JSON.parse(text)
-      if (json?.error) return String(json.error)
-      return text?.slice(0, 200) || null
+      errorMessage =
+        json?.error ||
+        json?.message ||
+        text?.slice(0, 200) ||
+        `HTTP ${res.status}: ${res.statusText}`
     } catch {
-      return text?.slice(0, 200) || null
+      errorMessage =
+        text?.slice(0, 200) || `HTTP ${res.status}: ${res.statusText}`
     }
   } catch {
-    return null
+    errorMessage = `HTTP ${res.status}: ${res.statusText}`
   }
+
+  return classifyNetworkError(errorMessage, details)
 }
 
-function isRetryableSupabaseError(message: string): boolean {
-  return /timeout|network|502|503|504/i.test(message)
+/**
+ * Enhanced retry logic with network-aware classification
+ */
+function shouldRetryNetworkError(error: unknown): boolean {
+  return isRetryableNetworkError(error)
+}
+
+/**
+ * Create network request with error handling
+ */
+async function createNetworkRequest(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const startTime = performance.now()
+
+  try {
+    const response = await fetch(url, options)
+    const endTime = performance.now()
+
+    if (!response.ok) {
+      const networkError = await safeReadNetworkError(response, {
+        requestUrl: url,
+        requestMethod: options.method || 'GET',
+        requestDuration: endTime - startTime,
+      })
+      throw networkError
+    }
+
+    return response
+  } catch (error) {
+    const endTime = performance.now()
+
+    if (error instanceof NetworkError) {
+      throw error
+    }
+
+    // Classify other errors as network errors
+    throw classifyNetworkError(error, {
+      requestUrl: url,
+      requestMethod: options.method || 'GET',
+      requestDuration: endTime - startTime,
+    })
+  }
 }
 
 /**
@@ -70,6 +144,13 @@ export function useNotesMutations() {
   const { user } = useAuthStore()
   const supabase = createClient()
   const offline = useOfflineStatus()
+  const networkStatus = useNetworkStatus({
+    pingUrl: '/manifest.json',
+    pingIntervalMs: 30000,
+    enableQualityMonitoring: true,
+    qualityTestUrl: '/api/health',
+    qualityTestIntervalMs: 120000,
+  })
 
   // Initialize unified search hook for enhanced search capabilities
   const unifiedSearch = useUnifiedSearch()
@@ -168,15 +249,15 @@ export function useNotesMutations() {
     []
   )
 
-  // Create note mutation
+  // Create note mutation with enhanced error handling
   const createNoteMutation = useMutation({
     mutationFn: async (content: string): Promise<Note> => {
       if (!user?.id) {
         throw new Error('User not authenticated')
       }
 
-      // If offline (or connectivity uncertain), enqueue and return a temp note optimistically
-      if (!offline.effectiveOnline) {
+      // If offline or network is poor, enqueue and return a temp note optimistically
+      if (!offline.effectiveOnline || networkStatus.isOffline) {
         const tempId = `temp_${cryptoRandomId()}`
         const now = new Date().toISOString()
 
@@ -204,20 +285,97 @@ export function useNotesMutations() {
         return optimistic
       }
 
-      // Route mutations via API proxy for server-side auth
-      const res = await fetch('/api/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      })
-      if (!res.ok) {
-        // If proxy fails due to network or transient server error, fallback to offline queue
-        const msg = await safeReadError(res)
-        throw new Error(msg || 'Failed to create note')
+      // Create note with retry logic and network error handling
+      const executeRequest = async (): Promise<Note> => {
+        try {
+          const res = await createNetworkRequest('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content }),
+          })
+
+          const json = await res.json()
+          const note = json?.note
+          if (!note) {
+            throw new Error('Invalid response: missing note data')
+          }
+
+          return transformDatabaseNote(note)
+        } catch (error) {
+          // If it's a retryable network error, let the retry logic handle it
+          if (error instanceof NetworkError && error.isRetryable) {
+            throw error
+          }
+
+          // For non-retryable errors, fall back to offline queue if appropriate
+          if (
+            error instanceof NetworkError &&
+            (error.networkType === 'authentication' ||
+              error.networkType === 'http_server')
+          ) {
+            console.warn(
+              'Network error, falling back to offline queue:',
+              error.userMessage
+            )
+
+            const tempId = `temp_${cryptoRandomId()}`
+            const now = new Date().toISOString()
+
+            const optimistic: Note = {
+              id: tempId,
+              user_id: user.id,
+              content,
+              title: null,
+              created_at: now,
+              updated_at: now,
+              is_rescued: false,
+              original_note_id: null,
+            } as Note
+
+            const item = createOutboxItem('create', { content }, { tempId })
+            enqueueOutbox(user.id, item)
+
+            return optimistic
+          }
+
+          throw error
+        }
       }
-      const json = await res.json()
-      const note = json?.note
-      return transformDatabaseNote(note)
+
+      // Execute with retry logic for retryable errors
+      try {
+        return await retryWithBackoff(
+          executeRequest,
+          {
+            maxAttempts: 3,
+            baseDelayMs: 1000,
+            maxDelayMs: 10000,
+            jitterMs: 500,
+            backoffMultiplier: 2,
+            retryCondition: (error: NetworkError) => error.isRetryable,
+          },
+          (attempt, error) => {
+            console.warn(
+              `Create note retry attempt ${attempt}:`,
+              error.userMessage
+            )
+          }
+        )
+      } catch (error) {
+        // Log error for monitoring
+        const errorLog = formatErrorForLogging(error, {
+          operation: 'create_note',
+          userId: user.id,
+          contentLength: content.length,
+          networkQuality: networkStatus.quality,
+          isOnline: networkStatus.effectiveOnline,
+        })
+
+        console.error('Create note failed:', errorLog)
+
+        // Re-throw the classified error
+        throw classifyError(error)
+      }
     },
     onSuccess: newNote => {
       // Real-time will handle the update, but we can optionally invalidate
@@ -231,9 +389,18 @@ export function useNotesMutations() {
         return [newNote, ...oldNotes]
       })
     },
+    onError: error => {
+      // Log additional error context
+      console.error('Create note mutation error:', {
+        error: error.message,
+        networkStatus: networkStatus.quality,
+        isOnline: networkStatus.effectiveOnline,
+        isOffline: offline.effectiveOnline,
+      })
+    },
   })
 
-  // Update note mutation (for rescue functionality)
+  // Update note mutation with enhanced error handling
   const updateNoteMutation = useMutation({
     mutationFn: async ({
       id,
@@ -246,17 +413,56 @@ export function useNotesMutations() {
         throw new Error('User not authenticated')
       }
 
-      const res = await fetch('/api/notes', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, updates }),
-      })
-      if (!res.ok) {
-        const msg = await safeReadError(res)
-        throw new Error(msg || 'Failed to update note')
+      const executeRequest = async (): Promise<Note> => {
+        try {
+          const res = await createNetworkRequest('/api/notes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, updates }),
+          })
+
+          const json = await res.json()
+          const note = json?.note
+          if (!note) {
+            throw new Error('Invalid response: missing note data')
+          }
+
+          return transformDatabaseNote(note)
+        } catch (error) {
+          throw classifyError(error)
+        }
       }
-      const json = await res.json()
-      return transformDatabaseNote(json.note)
+
+      try {
+        return await retryWithBackoff(
+          executeRequest,
+          {
+            maxAttempts: 2,
+            baseDelayMs: 1000,
+            maxDelayMs: 5000,
+            jitterMs: 500,
+            backoffMultiplier: 2,
+            retryCondition: (error: NetworkError) => error.isRetryable,
+          },
+          (attempt, error) => {
+            console.warn(
+              `Update note retry attempt ${attempt}:`,
+              error.userMessage
+            )
+          }
+        )
+      } catch (error) {
+        const errorLog = formatErrorForLogging(error, {
+          operation: 'update_note',
+          userId: user.id,
+          noteId: id,
+          networkQuality: networkStatus.quality,
+          isOnline: networkStatus.effectiveOnline,
+        })
+
+        console.error('Update note failed:', errorLog)
+        throw classifyError(error)
+      }
     },
     onSuccess: updatedNote => {
       // Real-time will handle the update, but ensure local state is consistent
@@ -273,28 +479,80 @@ export function useNotesMutations() {
         )
       })
     },
+    onError: error => {
+      console.error('Update note mutation error:', {
+        error: error.message,
+        networkStatus: networkStatus.quality,
+        isOnline: networkStatus.effectiveOnline,
+      })
+    },
   })
 
-  // Delete note mutation
+  // Delete note mutation with enhanced error handling
   const deleteNoteMutation = useMutation({
     mutationFn: async (noteId: string): Promise<string> => {
       if (!user?.id) {
         throw new Error('User not authenticated')
       }
 
-      const res = await fetch(`/api/notes?id=${encodeURIComponent(noteId)}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) {
-        const msg = await safeReadError(res)
-        throw new Error(msg || 'Failed to delete note')
+      const executeRequest = async (): Promise<string> => {
+        try {
+          const res = await createNetworkRequest(
+            `/api/notes?id=${encodeURIComponent(noteId)}`,
+            {
+              method: 'DELETE',
+            }
+          )
+
+          // Delete operations might not return JSON, just confirm success
+          return noteId
+        } catch (error) {
+          throw classifyError(error)
+        }
       }
-      return noteId
+
+      try {
+        return await retryWithBackoff(
+          executeRequest,
+          {
+            maxAttempts: 2,
+            baseDelayMs: 1000,
+            maxDelayMs: 5000,
+            jitterMs: 500,
+            backoffMultiplier: 2,
+            retryCondition: (error: NetworkError) => error.isRetryable,
+          },
+          (attempt, error) => {
+            console.warn(
+              `Delete note retry attempt ${attempt}:`,
+              error.userMessage
+            )
+          }
+        )
+      } catch (error) {
+        const errorLog = formatErrorForLogging(error, {
+          operation: 'delete_note',
+          userId: user.id,
+          noteId,
+          networkQuality: networkStatus.quality,
+          isOnline: networkStatus.effectiveOnline,
+        })
+
+        console.error('Delete note failed:', errorLog)
+        throw classifyError(error)
+      }
     },
     onSuccess: deletedNoteId => {
       // Real-time will handle the update, but ensure local state is consistent
       queryClient.setQueryData<Note[]>(notesQueryKey, (oldNotes = []) => {
         return oldNotes.filter(note => note.id !== deletedNoteId)
+      })
+    },
+    onError: error => {
+      console.error('Delete note mutation error:', {
+        error: error.message,
+        networkStatus: networkStatus.quality,
+        isOnline: networkStatus.effectiveOnline,
       })
     },
   })
@@ -827,7 +1085,7 @@ export function useNotesMutations() {
     resetUnifiedSearch: unifiedSearch.reset,
     clearSearchResults: unifiedSearch.clearResults,
 
-    // Offline helpers
+    // Enhanced offline helpers with network error classification
     flushOfflineOutbox: async () => {
       if (!user?.id)
         return { successIds: [], failedIds: [], retriedIds: [], errors: {} }
@@ -836,60 +1094,96 @@ export function useNotesMutations() {
         try {
           if (item.type === 'create') {
             const { content } = item.payload as { content: string }
-            const res = await fetch('/api/notes', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content, clientId: item.tempId }),
-            })
-            if (!res.ok) {
-              const msg = await safeReadError(res)
-              const retryable = /timeout|network|502|503|504|429/i.test(
-                msg || ''
-              )
+
+            try {
+              const res = await createNetworkRequest('/api/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content, clientId: item.tempId }),
+              })
+
+              const json = await res.json()
+              const note = json?.note
+              if (!note) {
+                return {
+                  status: 'fail',
+                  errorMessage: 'Invalid response: missing note data',
+                }
+              }
+
+              const persisted = transformDatabaseNote(note)
+
+              if (item.tempId) {
+                queryClient.setQueryData<Note[]>(
+                  ['notes', user.id],
+                  (old = []) => {
+                    const idx = old.findIndex(n => n.id === item.tempId)
+                    if (idx >= 0) {
+                      const next = [...old]
+                      next[idx] = persisted
+                      return next.sort(
+                        (a, b) =>
+                          new Date(
+                            b.updated_at ?? b.created_at ?? 0
+                          ).getTime() -
+                          new Date(a.updated_at ?? a.created_at ?? 0).getTime()
+                      )
+                    }
+                    return [persisted, ...old]
+                  }
+                )
+              }
+
+              return { status: 'success', mappedId: persisted.id }
+            } catch (error) {
+              // Use network error classification to determine retry behavior
+              if (error instanceof NetworkError) {
+                const shouldRetry =
+                  error.isRetryable && error.retryStrategy.retryCondition(error)
+
+                // Log error for monitoring
+                const errorLog = formatErrorForLogging(error, {
+                  operation: 'flush_outbox_create',
+                  userId: user.id,
+                  tempId: item.tempId,
+                  networkQuality: networkStatus.quality,
+                  isOnline: networkStatus.effectiveOnline,
+                })
+
+                console.warn('Outbox flush error:', errorLog)
+
+                return {
+                  status: shouldRetry ? 'retry' : 'fail',
+                  errorMessage: error.userMessage,
+                }
+              }
+
+              // Classify other errors
+              const classifiedError = classifyError(error)
               return {
-                status: retryable ? 'retry' : 'fail',
-                errorMessage: msg || 'create failed',
+                status: classifiedError.isRetryable ? 'retry' : 'fail',
+                errorMessage: classifiedError.userMessage,
               }
             }
-            const json = await res.json()
-            const persisted = transformDatabaseNote(json.note)
-
-            if (item.tempId) {
-              queryClient.setQueryData<Note[]>(
-                ['notes', user.id],
-                (old = []) => {
-                  const idx = old.findIndex(n => n.id === item.tempId)
-                  if (idx >= 0) {
-                    const next = [...old]
-                    next[idx] = persisted
-                    return next.sort(
-                      (a, b) =>
-                        new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
-                        new Date(a.updated_at ?? a.created_at ?? 0).getTime()
-                    )
-                  }
-                  return [persisted, ...old]
-                }
-              )
-            }
-
-            return { status: 'success', mappedId: persisted.id }
           }
 
           return { status: 'fail', errorMessage: 'unsupported mutation type' }
-        } catch (e: any) {
-          const msg = e?.message || 'flush error'
-          return { status: 'retry', errorMessage: msg }
+        } catch (error: any) {
+          const classifiedError = classifyError(error)
+          return {
+            status: 'retry',
+            errorMessage: classifiedError.userMessage || 'flush error',
+          }
         }
       }
 
-      // Use exponential backoff with jitter
+      // Use enhanced sync with network-aware retry logic
       const result = await syncQueuedNotes({
         userId: user.id,
         handler,
         maxAttempts: 5,
-        baseDelayMs: 500,
-        jitterMs: 250,
+        baseDelayMs: networkStatus.isPoorQuality ? 2000 : 500,
+        jitterMs: networkStatus.isPoorQuality ? 1000 : 250,
       })
 
       return result
@@ -912,5 +1206,19 @@ export function useNotesMutations() {
     resetUpdateError: updateNoteMutation.reset,
     resetDeleteError: deleteNoteMutation.reset,
     resetRescueError: rescueNoteMutation.reset,
+
+    // Network status information
+    networkStatus: {
+      isOnline: networkStatus.isOnline,
+      effectiveOnline: networkStatus.effectiveOnline,
+      quality: networkStatus.quality,
+      isHighQuality: networkStatus.isHighQuality,
+      isPoorQuality: networkStatus.isPoorQuality,
+      isOffline: networkStatus.isOffline,
+      latency: networkStatus.latency,
+      downloadSpeed: networkStatus.downloadSpeed,
+      lastError: networkStatus.lastError,
+      lastCheckedAt: networkStatus.lastCheckedAt,
+    },
   }
 }

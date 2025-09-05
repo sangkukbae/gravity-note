@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,8 +11,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
+import {
+  useAuthFormValidation,
+  usePasswordStrength,
+} from '@/hooks/use-auth-validation'
+import { PasswordStrengthIndicator } from './password-strength-indicator'
+import { analyzePasswordStrength } from '@/lib/validations/auth-validation'
 
 interface AuthFormProps {
   mode: 'signin' | 'signup'
@@ -21,6 +29,7 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -28,11 +37,125 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   const supabase = createClient()
 
+  // Initialize validation for the form
+  const validation = useAuthFormValidation({
+    mode,
+    realTimeValidation: true,
+    enablePasswordStrength: mode === 'signup',
+  })
+
+  // Password strength analysis for signup mode
+  const passwordStrength = usePasswordStrength(password)
+
+  // Handle email input change with validation
+  const handleEmailChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value
+      setEmail(value)
+
+      // Clear server errors when user starts typing
+      if (error) setError(null)
+
+      // Validate email if user has started typing
+      if (value.length > 0) {
+        validation.email.validateDebounced(value)
+      } else {
+        validation.email.clearError()
+      }
+    },
+    [validation.email, error]
+  )
+
+  // Handle password input change with validation
+  const handlePasswordChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value
+      setPassword(value)
+
+      // Clear server errors when user starts typing
+      if (error) setError(null)
+
+      // Validate password if user has started typing
+      if (value.length > 0) {
+        validation.password.validateDebounced(value)
+      } else {
+        validation.password.clearError()
+      }
+
+      // For signup mode, also check if passwords match
+      if (mode === 'signup' && confirmPassword) {
+        validation.validatePasswordsMatch(value, confirmPassword)
+      }
+    },
+    [
+      validation.password,
+      validation.validatePasswordsMatch,
+      mode,
+      confirmPassword,
+      error,
+    ]
+  )
+
+  // Handle confirm password input change (signup only)
+  const handleConfirmPasswordChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value
+      setConfirmPassword(value)
+
+      // Clear server errors when user starts typing
+      if (error) setError(null)
+
+      // Check if passwords match
+      if (mode === 'signup') {
+        validation.validatePasswordsMatch(password, value)
+      }
+    },
+    [validation.validatePasswordsMatch, password, mode, error]
+  )
+
+  // Validate form before submission
+  const validateFormForSubmission = useCallback(() => {
+    // Force validation of all fields
+    const emailValidation = validation.email.validate(email)
+    const passwordValidation = validation.password.validate(password)
+
+    let confirmPasswordValid = true
+    if (mode === 'signup' && validation.confirmPassword) {
+      const confirmPasswordValidation =
+        validation.confirmPassword.validate(confirmPassword)
+      validation.validatePasswordsMatch(password, confirmPassword)
+      confirmPasswordValid =
+        confirmPasswordValidation.success && password === confirmPassword
+    }
+
+    // Also validate the entire form with Zod schema
+    const formData =
+      mode === 'signup'
+        ? { email, password, confirmPassword }
+        : { email, password }
+
+    const formValidation = validation.validateForm(formData)
+
+    return (
+      emailValidation.success &&
+      passwordValidation.success &&
+      confirmPasswordValid &&
+      formValidation.success
+    )
+  }, [validation, email, password, confirmPassword, mode])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError(null)
     setMessage(null)
+
+    // Validate form before submission
+    if (!validateFormForSubmission()) {
+      setError('Please fix the validation errors before submitting.')
+      return
+    }
+
+    setLoading(true)
 
     try {
       if (mode === 'signup') {
@@ -90,6 +213,14 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
+  // Determine if submit button should be disabled
+  const isSubmitDisabled =
+    loading ||
+    !email.trim() ||
+    !password.trim() ||
+    (mode === 'signup' && !confirmPassword.trim()) ||
+    validation.formState.isValidating
+
   return (
     <Card className='w-full max-w-md'>
       <CardHeader>
@@ -102,6 +233,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       </CardHeader>
       <CardContent className='space-y-4'>
         <form onSubmit={handleSubmit} className='space-y-4'>
+          {/* Email Field */}
           <div className='space-y-2'>
             <Label htmlFor='email'>Email</Label>
             <Input
@@ -109,47 +241,203 @@ export function AuthForm({ mode }: AuthFormProps) {
               type='email'
               placeholder='Enter your email'
               value={email}
-              onChange={e => {
-                setEmail(e.target.value)
-                if (error) setError(null)
-              }}
-              required
+              onChange={handleEmailChange}
               disabled={loading}
+              className={cn(
+                validation.email.state.error &&
+                  validation.email.state.hasBeenValidated
+                  ? 'border-red-500 focus-visible:ring-red-500'
+                  : validation.email.state.isValid &&
+                      validation.email.state.hasBeenValidated
+                    ? 'border-green-500 focus-visible:ring-green-500'
+                    : ''
+              )}
             />
+            {validation.email.state.error &&
+              validation.email.state.hasBeenValidated && (
+                <p className='text-sm text-red-600 flex items-center space-x-1'>
+                  <svg
+                    className='w-4 h-4'
+                    fill='currentColor'
+                    viewBox='0 0 20 20'
+                  >
+                    <path
+                      fillRule='evenodd'
+                      d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z'
+                      clipRule='evenodd'
+                    />
+                  </svg>
+                  <span>{validation.email.state.error}</span>
+                </p>
+              )}
           </div>
 
+          {/* Password Field */}
           <div className='space-y-2'>
-            <Label htmlFor='password'>Password</Label>
+            <Label htmlFor='password'>
+              Password
+              {mode === 'signup' && (
+                <span className='text-sm text-gray-500 ml-1'>
+                  (minimum 8 characters)
+                </span>
+              )}
+            </Label>
             <Input
               id='password'
               type='password'
-              placeholder='Enter your password'
+              placeholder={
+                mode === 'signin'
+                  ? 'Enter your password'
+                  : 'Create a strong password'
+              }
               value={password}
-              onChange={e => {
-                setPassword(e.target.value)
-                if (error) setError(null)
-              }}
-              required
+              onChange={handlePasswordChange}
               disabled={loading}
-              minLength={6}
-              pattern='.{6,}'
+              className={cn(
+                validation.password.state.error &&
+                  validation.password.state.hasBeenValidated
+                  ? 'border-red-500 focus-visible:ring-red-500'
+                  : validation.password.state.isValid &&
+                      validation.password.state.hasBeenValidated
+                    ? 'border-green-500 focus-visible:ring-green-500'
+                    : ''
+              )}
             />
+            {validation.password.state.error &&
+              validation.password.state.hasBeenValidated && (
+                <p className='text-sm text-red-600 flex items-center space-x-1'>
+                  <svg
+                    className='w-4 h-4'
+                    fill='currentColor'
+                    viewBox='0 0 20 20'
+                  >
+                    <path
+                      fillRule='evenodd'
+                      d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z'
+                      clipRule='evenodd'
+                    />
+                  </svg>
+                  <span>{validation.password.state.error}</span>
+                </p>
+              )}
+
+            {/* Password Strength Indicator for Signup */}
+            {mode === 'signup' && (
+              <PasswordStrengthIndicator
+                strength={passwordStrength}
+                isVisible={passwordStrength.isVisible}
+                showFeedback={true}
+                className='mt-2'
+              />
+            )}
           </div>
 
+          {/* Confirm Password Field (Signup Only) */}
+          {mode === 'signup' && (
+            <div className='space-y-2'>
+              <Label htmlFor='confirmPassword'>Confirm Password</Label>
+              <Input
+                id='confirmPassword'
+                type='password'
+                placeholder='Confirm your password'
+                value={confirmPassword}
+                onChange={handleConfirmPasswordChange}
+                disabled={loading}
+                className={cn(
+                  validation.confirmPassword?.state.error &&
+                    validation.confirmPassword.state.hasBeenValidated
+                    ? 'border-red-500 focus-visible:ring-red-500'
+                    : validation.confirmPassword?.state.isValid &&
+                        validation.confirmPassword.state.hasBeenValidated
+                      ? 'border-green-500 focus-visible:ring-green-500'
+                      : ''
+                )}
+              />
+              {validation.confirmPassword?.state.error &&
+                validation.confirmPassword.state.hasBeenValidated && (
+                  <p className='text-sm text-red-600 flex items-center space-x-1'>
+                    <svg
+                      className='w-4 h-4'
+                      fill='currentColor'
+                      viewBox='0 0 20 20'
+                    >
+                      <path
+                        fillRule='evenodd'
+                        d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z'
+                        clipRule='evenodd'
+                      />
+                    </svg>
+                    <span>{validation.confirmPassword.state.error}</span>
+                  </p>
+                )}
+            </div>
+          )}
+
+          {/* Server Error */}
           {error && (
-            <div className='text-sm text-destructive bg-destructive/10 p-3 rounded-md'>
-              {error}
-            </div>
+            <Alert variant='destructive'>
+              <svg className='w-4 h-4' fill='currentColor' viewBox='0 0 20 20'>
+                <path
+                  fillRule='evenodd'
+                  d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z'
+                  clipRule='evenodd'
+                />
+              </svg>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
+          {/* Success Message */}
           {message && (
-            <div className='text-sm text-green-600 bg-green-50 p-3 rounded-md'>
-              {message}
-            </div>
+            <Alert className='border-green-200 bg-green-50'>
+              <svg
+                className='w-4 h-4 text-green-600'
+                fill='currentColor'
+                viewBox='0 0 20 20'
+              >
+                <path
+                  fillRule='evenodd'
+                  d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+                  clipRule='evenodd'
+                />
+              </svg>
+              <AlertDescription className='text-green-800'>
+                {message}
+              </AlertDescription>
+            </Alert>
           )}
 
-          <Button type='submit' className='w-full' disabled={loading}>
-            {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+          <Button type='submit' className='w-full' disabled={isSubmitDisabled}>
+            {loading ? (
+              <div className='flex items-center space-x-2'>
+                <svg
+                  className='animate-spin h-4 w-4'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                >
+                  <circle
+                    className='opacity-25'
+                    cx='12'
+                    cy='12'
+                    r='10'
+                    stroke='currentColor'
+                    strokeWidth='4'
+                  />
+                  <path
+                    className='opacity-75'
+                    fill='currentColor'
+                    d='m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                  />
+                </svg>
+                <span>
+                  {mode === 'signin' ? 'Signing In...' : 'Creating Account...'}
+                </span>
+              </div>
+            ) : mode === 'signin' ? (
+              'Sign In'
+            ) : (
+              'Sign Up'
+            )}
           </Button>
         </form>
 
