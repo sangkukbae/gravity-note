@@ -39,7 +39,7 @@ This implementation plan provides a comprehensive roadmap for building Gravity N
 - **Team Size**: Solo developer with clear scaling plan
 - **Budget Estimate**: $1-669/month based on usage (99.7% cost reduction)
 
-### Current Implementation Status (September 3, 2025)
+### Current Implementation Status (September 6, 2025)
 
 **Major Milestones Completed:**
 
@@ -47,6 +47,9 @@ This implementation plan provides a comprehensive roadmap for building Gravity N
 - ✅ **Phase 1 Real-time Sync**: Full WebSocket integration with Supabase subscriptions (**COMPLETED EARLY**)
 - ✅ **Basic Note Rescue**: Notes can be moved to top of list with real-time propagation (**COMPLETED EARLY**)
 - ✅ **Week 4+ Advanced Features**: Modal-based creation, theme system, enhanced text rendering (**AHEAD OF SCHEDULE**)
+- ✅ **Attachments MVP**: Image attachments (picker/paste → draft upload → finalize on note create) with signed URL thumbnails and cleanup API
+- ✅ **Edit Modal & More Menu**: In-place note editing via modal and dropdown actions
+- ✅ **Analytics Foundation**: Vercel Analytics integration and event tracking hooks
 
 **Technical Architecture Achievements:**
 
@@ -62,7 +65,7 @@ This implementation plan provides a comprehensive roadmap for building Gravity N
 - **API Infrastructure**: Production health checks, error reporting endpoints, and feedback collection systems
 - **Enhanced Authentication**: Advanced form validation, password strength indicators, and real-time error clearing
 
-**Current Status**: Implementation is **85%+ ahead of schedule** with temporal grouping system, advanced markdown rendering, comprehensive search enhancement, and robust production-ready error handling & monitoring systems completed
+**Current Status**: Implementation is **85%+ ahead of schedule** with attachments MVP, edit modal, analytics foundation, temporal grouping, advanced markdown, comprehensive search, and production-grade error handling & monitoring completed
 
 **Next Phase Ready**: Production deployment optimization, comprehensive monitoring, and beta user testing program
 
@@ -290,12 +293,38 @@ CREATE TABLE user_preferences (
 );
 ```
 
+-- Note attachments (images) for MVP
+
+```sql
+CREATE TABLE note_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  note_id UUID REFERENCES notes(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  mime_type TEXT,
+  size_bytes INTEGER,
+  width INTEGER,
+  height INTEGER,
+  kind TEXT DEFAULT 'image',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+Storage
+
+- Supabase Storage bucket: `note-images`
+- Draft path: `userId/drafts/sessionId/localId.ext` → on finalize moved to `userId/noteId/attachmentId.ext`
+- Cleanup endpoint: `POST /api/attachments/cleanup` removes user‑scoped orphan drafts older than 48h
+
 #### Indexes and Performance
 
 ```sql
 -- Optimized indexes for performance
 CREATE INDEX idx_user_created ON notes (user_id, created_at DESC);
 CREATE INDEX idx_content_search ON notes USING gin(to_tsvector('english', content));
+-- Attachments indexes
+CREATE INDEX idx_note_attachments_user_created ON note_attachments (user_id, created_at DESC);
+CREATE INDEX idx_note_attachments_note ON note_attachments (note_id);
 ```
 
 #### Row Level Security
@@ -313,6 +342,13 @@ CREATE POLICY "Users can insert own notes" ON notes
 
 CREATE POLICY "Users can update own notes" ON notes
     FOR UPDATE USING (auth.uid() = user_id);
+
+-- Enable RLS for attachments
+ALTER TABLE note_attachments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own attachments" ON note_attachments
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 ```
 
 #### Real-time Configuration
@@ -545,6 +581,26 @@ const useOfflineNotes = () => {
 - User feedback collection system
 - Network status indicators and offline handling
 - Graceful error recovery with user-friendly messages
+
+#### Attachments MVP ✅
+
+- Image attachments on note creation (picker and paste)
+- Draft upload to Supabase Storage (`note-images`) with finalize on note create
+- Signed URL thumbnails with transform and client-side cache
+- Display in note item and edit modal
+- Orphan cleanup API (`/api/attachments/cleanup`, 48h threshold)
+- E2E coverage for attach/remove and finalize flows
+
+#### Edit Modal & More Menu ✅
+
+- Note editing modal with validation and keyboard shortcuts
+- Dropdown “more” menu for per-note actions
+- Attachments preview inside edit modal
+
+#### Analytics Foundation ✅
+
+- Vercel Analytics enabled and `<Analytics />` wired
+- Reusable tracking hooks for note, search, performance, and errors
 
 ### 3.2 In-Progress Features
 
