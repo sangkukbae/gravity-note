@@ -4,7 +4,7 @@
 **Target**: MVP launch with core features  
 **Stack**: Next.js 14 + Supabase + Vercel  
 **Last Updated**: September 6, 2025  
-**Current Status**: ✅ **Attachments MVP, Edit Modal, and Analytics Foundation** — Image attachments (picker/paste → draft upload → finalize), note edit modal with more menu, and Vercel Analytics wiring are implemented with E2E coverage. Monitoring and auth improvements remain in place.
+**Current Status**: ✅ **Attachments MVP, Edit Modal, Analytics Foundation, & Advanced Search UX** — Image attachments (picker/paste → draft upload → finalize), note edit modal with more menu, Vercel Analytics wiring, and sophisticated search state management system with dedicated UI components are implemented with E2E coverage. Production-optimized error monitoring and auth improvements remain in place.
 
 ---
 
@@ -1342,3 +1342,43 @@ Follow‑ups
 - [ ] Add server validation size/type mirror and virus scanning hook
 - [ ] Add deletion flow for finalized attachments
 - [ ] Add thumbnails generation pipeline (server‑side)
+
+---
+
+## 🔍 Advanced Search UX Enhancement — IN PROGRESS (September 6, 2025)
+
+### ✅ Search State Management System
+
+- [x] Advanced search state machine with sophisticated transition states
+  - [x] `useSearchState` hook with reducer pattern for complex state management
+  - [x] States: `browsing`, `search-opening`, `search-empty`, `search-typing`, `search-loading`, `search-results`, `search-clearing`
+  - [x] Transition tracking with timestamps and error handling
+  - [x] Clean separation of search vs browsing modes
+
+### ✅ Dedicated Search UI Components
+
+- [x] `SearchLoadingState` - Shows loading spinner with query context
+- [x] `SearchClearingState` - Smooth transition back to notes with preview
+- [x] `SearchResultsState` - Full search results display with note highlighting
+- [x] `BrowsingState` - Main notes browsing interface with load more support
+- [x] All components optimized with `React.memo` for performance
+
+### ✅ Enhanced Error Monitoring
+
+- [x] `SentryClientLoader` component for production-only error tracking
+- [x] Conditional Sentry instrumentation loading (production-only)
+- [x] Improved client-side error monitoring without development noise
+
+### 🔄 Integration Status
+
+- [ ] Integrate new search states into main `SearchBar` component
+- [ ] Update `NotesContainer` to use advanced search state management
+- [ ] Add transition animations between search states
+- [ ] Update E2E tests to cover new search interaction patterns
+
+**Technical Implementation:**
+
+- New files: `components/notes/search-states.tsx`, `hooks/use-search-state.ts`, `components/providers/sentry-client-loader.tsx`
+- Enhanced state management with comprehensive transition handling
+- Production-optimized error monitoring setup
+- Performance-optimized component rendering with memoization

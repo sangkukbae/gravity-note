@@ -18,9 +18,12 @@ const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || undefined
 const ENVIRONMENT = process.env.NODE_ENV || 'development'
 const DEBUG_ENABLED = process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
 
-// Only initialize if DSN is available
-// Ensure this only runs in the browser to avoid SSR errors
-if (SENTRY_DSN && typeof window !== 'undefined') {
+// Only initialize in production and only in the browser
+if (
+  SENTRY_DSN &&
+  typeof window !== 'undefined' &&
+  ENVIRONMENT === 'production'
+) {
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: ENVIRONMENT,
@@ -57,10 +60,10 @@ if (SENTRY_DSN && typeof window !== 'undefined') {
       release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
     }),
 
-    // Error filtering - don't capture development console errors
+    // Error filtering - don't capture non-production console warnings
     beforeSend(event) {
-      // Skip capturing in development if console errors
-      if (ENVIRONMENT === 'development' && event.level === 'warning') {
+      // Skip capturing warnings outside production (dev/test)
+      if (ENVIRONMENT !== 'production' && event.level === 'warning') {
         return null
       }
 

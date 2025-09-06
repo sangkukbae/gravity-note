@@ -25,6 +25,10 @@ import { useAuthStore } from '@/lib/stores/auth'
 import { getOutboxCount } from '@/lib/offline/outbox'
 
 export default function DashboardPage() {
+  // Hydration guard to avoid SSR/CSR markup mismatch
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const notesContainerRef = useRef<NotesContainerRef>(null)
   const { user } = useAuthStore()
   const [outboxCount, setOutboxCount] = useState(0)
@@ -39,7 +43,7 @@ export default function DashboardPage() {
 
   // Real-time notes hook
   const {
-    notes,
+    notes: realtimeNotes,
     isLoading,
     error,
     realtimeState,
@@ -53,6 +57,22 @@ export default function DashboardPage() {
       )
     },
   })
+
+  // Stabilize notes to prevent flicker during initial load
+  // Only update notes when we have a complete, stable result
+  const [stableNotes, setStableNotes] = useState<Note[]>([])
+
+  useEffect(() => {
+    // Only update stable notes when:
+    // 1. We're not in initial loading state, AND
+    // 2. We have notes data (could be empty array for new users)
+    if (!isLoading && realtimeNotes !== undefined) {
+      setStableNotes(realtimeNotes)
+    }
+  }, [isLoading, realtimeNotes])
+
+  // Use stable notes for display to prevent flicker
+  const notes = stableNotes
 
   // Notes mutations hook
   const {
@@ -397,6 +417,18 @@ export default function DashboardPage() {
   }, [])
 
   // Show loading state
+  // Render a stable shell on server and before first client paint
+  if (!mounted) {
+    return (
+      <div className='min-h-screen bg-background flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2'></div>
+          <p className='text-muted-foreground'>Loading your notes...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <ProtectedRoute>

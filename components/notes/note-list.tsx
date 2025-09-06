@@ -5,6 +5,13 @@ import { NoteItem, Note } from './note-item'
 import { cn } from '@/lib/utils'
 import { SearchIcon, InboxIcon, LoaderIcon } from 'lucide-react'
 import { useInfiniteScroll } from '@/hooks/use-infinite-scroll'
+import { SearchState } from '@/hooks/use-search-state'
+import {
+  SearchLoadingState,
+  SearchClearingState,
+  SearchResultsState,
+  BrowsingState,
+} from './search-states'
 
 interface NoteListProps {
   notes: Note[]
@@ -17,6 +24,7 @@ interface NoteListProps {
   className?: string
   onLoadMore?: () => Promise<void>
   hasMore?: boolean
+  searchState?: SearchState // New optional prop for enhanced search UX
 }
 
 export const NoteList = memo(function NoteList({
@@ -30,6 +38,7 @@ export const NoteList = memo(function NoteList({
   className,
   onLoadMore,
   hasMore = false,
+  searchState, // New prop
 }: NoteListProps) {
   // Highlight search matches in content - memoized for performance
   const getHighlightedContent = useMemo(() => {
@@ -87,7 +96,57 @@ export const NoteList = memo(function NoteList({
     disabled: isLoading || !!searchQuery, // Disable infinite scroll during loading or search
   })
 
-  // Empty states
+  // State-aware rendering - prioritized over legacy loading states
+  if (searchState) {
+    switch (searchState.mode) {
+      case 'search-loading':
+        return (
+          <SearchLoadingState
+            query={searchState.query}
+            {...(className ? { className } : {})}
+          />
+        )
+
+      case 'search-clearing':
+        return (
+          <SearchClearingState
+            notes={notes}
+            className={cn(className, 'animate-search-clearing')}
+          />
+        )
+
+      case 'search-results':
+        return (
+          <SearchResultsState
+            notes={notes}
+            query={searchState.query}
+            className={cn(className, 'animate-search-fade-in')}
+            {...(onRescue ? { onRescue } : {})}
+            isRescuing={isRescuing}
+            {...(rescuingId ? { rescuingId } : {})}
+          />
+        )
+
+      case 'browsing':
+        return (
+          <BrowsingState
+            notes={notes}
+            className={cn(className, 'animate-search-fade-in')}
+            {...(onRescue ? { onRescue } : {})}
+            isRescuing={isRescuing}
+            {...(rescuingId ? { rescuingId } : {})}
+            {...(onLoadMore ? { onLoadMore } : {})}
+            hasMore={hasMore}
+          />
+        )
+
+      // Fall through for other states like 'search-empty', 'search-typing', etc.
+      default:
+        break
+    }
+  }
+
+  // Fallback to legacy loading state if no search state provided
   if (isLoading) {
     return (
       <div className={cn('flex items-center justify-center p-8', className)}>

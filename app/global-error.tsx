@@ -11,7 +11,6 @@
  * @see https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/#create-a-global-error-handler
  */
 
-import * as Sentry from '@sentry/nextjs'
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,23 +29,33 @@ interface GlobalErrorProps {
 
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
-    // Report the error to Sentry
-    Sentry.captureException(error, {
-      tags: {
-        component: 'global-error',
-        location: 'app-root',
-      },
-      contexts: {
-        react: {
-          componentStack: error.stack,
-        },
-      },
-      extra: {
-        digest: error.digest,
-        errorBoundary: 'global',
-        timestamp: new Date().toISOString(),
-      },
-    })
+    // Only report errors to Sentry in production
+    if (process.env.NODE_ENV === 'production') {
+      import('@sentry/nextjs')
+        .then(Sentry => {
+          // Report the error to Sentry
+          Sentry.captureException(error, {
+            tags: {
+              component: 'global-error',
+              location: 'app-root',
+            },
+            contexts: {
+              react: {
+                componentStack: error.stack,
+              },
+            },
+            extra: {
+              digest: error.digest,
+              errorBoundary: 'global',
+              timestamp: new Date().toISOString(),
+            },
+          })
+        })
+        .catch(console.error)
+    } else {
+      // In development, just log the error to console
+      console.error('Global Error:', error)
+    }
   }, [error])
 
   return (

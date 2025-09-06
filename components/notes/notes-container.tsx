@@ -24,6 +24,8 @@ import { shouldHandleSearchShortcut } from '@/lib/utils/keyboard'
 import { useOfflineStatus } from '@/hooks/use-offline-status'
 import { LocalSaveIndicator } from '@/components/ui/local-save-indicator'
 import { toast } from 'sonner'
+import { useSearchState } from '@/hooks/use-search-state'
+import { SEARCH_TRANSITIONS } from '@/lib/constants/search'
 // Toast notifications are handled by the parent component
 
 interface NotesContainerProps {
@@ -77,6 +79,17 @@ export const NotesContainer = forwardRef<
     const [isSearching, setIsSearching] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [showFAB, setShowFAB] = useState(false)
+
+    // Enhanced search state management
+    const {
+      state: searchStateValue,
+      setQuery,
+      clearSearch,
+      completeClear,
+      startSearch,
+      setResults,
+      setError,
+    } = useSearchState()
     // Temporal grouping state
     const [collapsedSections, setCollapsedSections] = useState<Set<TimeGroup>>(
       new Set()
@@ -249,33 +262,60 @@ export const NotesContainer = forwardRef<
       [onRescueNote]
     )
 
-    // Handle search
+    // Enhanced search handler with state machine
     const handleSearch = useCallback(
       async (query: string) => {
         if (!externalSearchControl) {
           setInternalSearchQuery(query)
         }
 
-        if (!query.trim()) {
-          // Reset to original notes when search is cleared
-          setNotes(initialNotes)
+        const trimmedQuery = query.trim()
+
+        // Update search state immediately for responsive feedback
+        setQuery(query)
+
+        if (!trimmedQuery) {
+          // Trigger smooth clearing transition instead of immediate reset
+          clearSearch()
+
+          // Delay the actual reset to allow for smooth transition
+          setTimeout(() => {
+            setNotes(initialNotes)
+            completeClear()
+          }, SEARCH_TRANSITIONS.CLEAR_DELAY)
+
           return
         }
 
         if (onSearchNotes) {
+          // Start search loading state
+          startSearch()
           setIsSearching(true)
+
           try {
-            const searchResults = await onSearchNotes(query)
+            const searchResults = await onSearchNotes(trimmedQuery)
             setNotes(searchResults)
+            setResults(searchResults)
           } catch (error) {
             console.error('Search failed:', error)
+            setError(error instanceof Error ? error.message : 'Search failed')
             // Error toast is handled by the parent component (dashboard)
           } finally {
             setIsSearching(false)
           }
         }
       },
-      [onSearchNotes, initialNotes, externalSearchControl]
+      [
+        onSearchNotes,
+        initialNotes,
+        externalSearchControl,
+        setQuery,
+        clearSearch,
+        completeClear,
+        startSearch,
+        setResults,
+        setError,
+      ]
     )
 
     // Enhanced search handler for temporal grouping
@@ -326,15 +366,23 @@ export const NotesContainer = forwardRef<
       }
     }, [externalSearchQuery, externalSearchControl, handleSearch])
 
-    // Clear search and reset notes
+    // Enhanced clear search handler with smooth transitions
     const handleClearSearch = useCallback(() => {
       if (!externalSearchControl) {
         setInternalSearchQuery('')
         // Keep search open when clearing so user can continue typing
         setIsSearchOpen(true)
       }
-      setNotes(initialNotes)
-    }, [initialNotes, externalSearchControl])
+
+      // Use smooth clearing transition
+      clearSearch()
+
+      // Delay the actual reset to allow for smooth transition
+      setTimeout(() => {
+        setNotes(initialNotes)
+        completeClear()
+      }, SEARCH_TRANSITIONS.CLEAR_DELAY)
+    }, [initialNotes, externalSearchControl, clearSearch, completeClear])
 
     // Global keyboard shortcuts (only when not using external search control)
     useEffect(() => {
@@ -401,6 +449,7 @@ export const NotesContainer = forwardRef<
                     onToggle={() => setIsSearchOpen(!isSearchOpen)}
                     placeholder='Search all your thoughts...'
                     disabled={!offline.effectiveOnline}
+                    searchState={searchStateValue}
                   />
                 </div>
               )}
@@ -437,6 +486,7 @@ export const NotesContainer = forwardRef<
                 {...(typeof rescuingId !== 'undefined' ? { rescuingId } : {})}
                 searchQuery={searchQuery}
                 onSearchChange={handleSearch}
+                searchState={searchStateValue}
               />
             )}
           </div>

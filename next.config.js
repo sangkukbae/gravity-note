@@ -316,8 +316,8 @@ const sentryWebpackPluginOptions = {
   authToken: process.env.SENTRY_AUTH_TOKEN,
 
   // Sentry CLI configuration
-  silent: false, // Can be used to suppress logs
-  dryRun: process.env.NODE_ENV === 'development', // Don't upload in development
+  silent: process.env.NODE_ENV === 'development', // Suppress logs in development
+  dryRun: true, // Always use dry run to prevent upload failures during development
 
   // Source map upload configuration
   include: ['.next/static/chunks/', '.next/static/media/', '.next/server/'],
@@ -344,12 +344,17 @@ const sentryWebpackPluginOptions = {
 
   // Performance and reliability
   errorHandler: (err, invokeErr, compilation) => {
-    compilation.warnings.push('Sentry CLI Plugin: ' + err.message)
+    if (compilation && compilation.warnings) {
+      compilation.warnings.push('Sentry CLI Plugin: ' + err.message)
+    }
   },
 }
 
 // Export configuration with proper plugin chaining
-module.exports = withSentryConfig(
-  withPWA(nextConfig),
-  sentryWebpackPluginOptions
-)
+// Only apply Sentry configuration if we have the required environment variables
+const hasRequiredSentryConfig =
+  process.env.SENTRY_AUTH_TOKEN && process.env.NODE_ENV === 'production'
+
+module.exports = hasRequiredSentryConfig
+  ? withSentryConfig(withPWA(nextConfig), sentryWebpackPluginOptions)
+  : withPWA(nextConfig)

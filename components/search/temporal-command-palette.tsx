@@ -99,6 +99,8 @@ export function TemporalCommandPalette({
   const DEBOUNCE_DELAY = 200
   const MAX_TITLE_LENGTH = 80
   const MAX_CONTENT_LENGTH = 120
+  // Keep the search panel visually stable between loading and results
+  // Using a fixed min-height prevents the dialog from "popping" larger later
 
   // Stabilize handler identities via refs to prevent effect dependency churn
   const onUnifiedSearchRef = useRef(onUnifiedSearch)
@@ -244,7 +246,7 @@ export function TemporalCommandPalette({
         className='focus-within:border-ring/50'
       />
 
-      <CommandList className='max-h-[500px] overflow-y-auto'>
+      <CommandList className='min-h-[280px] md:min-h-[420px] max-h-[70vh] md:max-h-[500px] overflow-y-auto'>
         <CommandEmpty>
           {isLoading ? (
             <div className='flex items-center justify-center py-6'>
