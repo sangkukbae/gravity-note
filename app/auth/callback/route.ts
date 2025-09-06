@@ -2,29 +2,32 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
+  const url = new URL(request.url)
+  const { searchParams } = url
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  // Prevent open redirect: only allow same-origin paths
+  const rawNext = searchParams.get('next') ?? '/dashboard'
+  const next = rawNext.startsWith('/') ? rawNext : '/dashboard'
 
   if (code) {
     const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
-      const isLocalEnv = process.env.NODE_ENV === 'development'
+      const forwardedHost = request.headers.get('x-forwarded-host')
+      const forwardedProto = request.headers.get('x-forwarded-proto')
+      const host = forwardedHost || request.headers.get('host') || url.host
+      const protocol = forwardedProto || url.protocol.replace(':', '')
 
-      if (isLocalEnv) {
-        // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
-      } else {
-        return NextResponse.redirect(`${origin}${next}`)
-      }
+      return NextResponse.redirect(`${protocol}://${host}${next}`)
     }
   }
 
   // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  const fallbackHost = request.headers.get('x-forwarded-host') || url.host
+  const fallbackProto =
+    request.headers.get('x-forwarded-proto') || url.protocol.replace(':', '')
+  return NextResponse.redirect(
+    `${fallbackProto}://${fallbackHost}/auth/auth-code-error`
+  )
 }

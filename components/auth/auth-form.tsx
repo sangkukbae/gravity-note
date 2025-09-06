@@ -27,6 +27,12 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ mode }: AuthFormProps) {
+  // Resolve a reliable base URL at runtime to avoid env drift between
+  // environments (prevents accidental redirects to localhost in prod).
+  const runtimeBaseUrl =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_BASE_URL
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -87,13 +93,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         validation.validatePasswordsMatch(value, confirmPassword)
       }
     },
-    [
-      validation.password,
-      validation.validatePasswordsMatch,
-      mode,
-      confirmPassword,
-      error,
-    ]
+    [error, mode, confirmPassword, validation]
   )
 
   // Handle confirm password input change (signup only)
@@ -110,7 +110,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         validation.validatePasswordsMatch(password, value)
       }
     },
-    [validation.validatePasswordsMatch, password, mode, error]
+    [error, mode, validation, password]
   )
 
   // Validate form before submission
@@ -163,7 +163,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           email,
           password,
           options: {
-            emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+            emailRedirectTo: `${runtimeBaseUrl}/auth/callback`,
           },
         })
 
@@ -199,7 +199,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+          redirectTo: `${runtimeBaseUrl}/auth/callback`,
         },
       })
 
