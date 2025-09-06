@@ -189,22 +189,35 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
             }
 
             try {
-              const { newPath } = await moveToFinal({
-                userId: user.id,
-                noteId: createdId,
-                attachmentId: attachment.rowId,
-                draftPath: attachment.storagePath,
+              // Call server-side API to finalize attachment
+              const response = await fetch('/api/attachments/finalize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: user.id,
+                  noteId: createdId,
+                  attachmentId: attachment.rowId,
+                  draftPath: attachment.storagePath,
+                }),
               })
 
-              const { error } = await (supabase as any)
+              if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Finalization failed')
+              }
+
+              const { finalPath } = await response.json()
+
+              // Update the attachment record with the final path
+              const { error } = await supabase
                 .from('note_attachments')
-                .update({ note_id: createdId, storage_path: newPath })
+                .update({ note_id: createdId, storage_path: finalPath })
                 .eq('id', attachment.rowId)
 
               if (error) throw error
 
               console.log(
-                `Successfully finalized attachment ${attachment.rowId}`
+                `✅ Successfully finalized attachment ${attachment.rowId} at ${finalPath}`
               )
             } catch (error) {
               console.warn(
@@ -348,15 +361,15 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                   file: d.file,
                 })
                 const dims = await measureImage(d.file)
-                const { data, error } = await (supabase as any)
+                const { data, error } = await supabase
                   .from('note_attachments')
                   .insert({
                     user_id: user.id,
                     storage_path: path,
                     mime_type: d.file.type,
                     size_bytes: d.file.size,
-                    width: dims.width,
-                    height: dims.height,
+                    width: dims.width || null,
+                    height: dims.height || null,
                     kind: 'image',
                   })
                   .select('id')
@@ -397,7 +410,7 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                         draftPath: path,
                       })
 
-                      const { error } = await (supabase as any)
+                      const { error } = await supabase
                         .from('note_attachments')
                         .update({
                           note_id: finalizeNoteId,
@@ -505,11 +518,14 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
             URL.revokeObjectURL(found.previewUrl)
             if (found.storagePath && found.rowId) {
               removeObject(found.storagePath).catch(() => {})
-              ;(supabase as any)
+              supabase
                 .from('note_attachments')
                 .delete()
                 .eq('id', found.rowId)
-                .catch(() => {})
+                .then(
+                  () => {},
+                  () => {}
+                )
             }
           }
           return prev.filter(a => a.id !== id)

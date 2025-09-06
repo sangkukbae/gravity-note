@@ -53,15 +53,15 @@ export function NoteEditModal({
     // Reset height to auto to get the correct scrollHeight
     textarea.style.height = 'auto'
     const scrollHeight = textarea.scrollHeight
-    const maxHeight = 400 // Maximum height for the modal textarea
+    const maxHeight = 300 // Reasonable max height before scrolling
     const minHeight = 120 // Minimum height to encourage editing
 
     // Set height based on content, with min/max constraints
     const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight))
     textarea.style.height = newHeight + 'px'
 
-    // Show scrollbar only when content exceeds max height
-    textarea.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden'
+    // Always allow scrolling in the textarea
+    textarea.style.overflowY = 'auto'
   }, [])
 
   // Update refs with latest values to avoid stale closures
@@ -194,7 +194,9 @@ export function NoteEditModal({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn('p-0 gap-0 md:max-w-2xl md:max-h-[85vh]')}
+        className={cn(
+          'flex flex-col p-0 gap-0 md:max-w-2xl md:max-h-[85vh] overflow-hidden'
+        )}
         // Prevent automatic close on outside click when there are unsaved changes
         onPointerDownOutside={e => {
           if (hasUnsavedChanges) {
@@ -211,7 +213,7 @@ export function NoteEditModal({
         <DialogTitle className='sr-only'>Edit Note</DialogTitle>
 
         {/* Header */}
-        <div className='flex items-center justify-between border-b border-border p-4 md:p-6'>
+        <div className='flex items-center justify-between border-b border-border p-4 md:p-6 flex-shrink-0'>
           <h2 className='text-lg font-semibold text-foreground'>Edit Note</h2>
           <Button
             variant='ghost'
@@ -225,7 +227,7 @@ export function NoteEditModal({
         </div>
 
         {/* Content */}
-        <div className='flex-1 p-4 md:p-6'>
+        <div className='flex-1 overflow-y-auto p-4 md:p-6'>
           <form onSubmit={handleSubmit} className='space-y-4'>
             {/* Attachments preview for this note (read-only) */}
             {noteId && <NoteAttachments noteId={noteId} />}
@@ -239,7 +241,7 @@ export function NoteEditModal({
               className={cn(
                 'min-h-[120px] resize-none border-0 p-0 text-base shadow-none focus-visible:ring-0',
                 'placeholder:text-muted-foreground/60',
-                'overflow-y-hidden',
+                'overflow-y-auto',
                 hasValidationError && 'bg-destructive/5',
                 isLoading && 'opacity-50'
               )}
@@ -259,7 +261,7 @@ export function NoteEditModal({
         </div>
 
         {/* Footer */}
-        <div className='flex items-center justify-between border-t border-border p-4 md:p-6'>
+        <div className='flex items-center justify-between border-t border-border p-4 md:p-6 flex-shrink-0'>
           <div className='flex items-center gap-4'>
             {/* Keyboard hint */}
             <div className='flex items-center gap-2 text-sm text-muted-foreground'>

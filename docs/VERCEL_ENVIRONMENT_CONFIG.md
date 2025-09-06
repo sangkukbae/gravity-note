@@ -7,16 +7,19 @@ This document outlines the required environment variable configuration for the G
 ## Critical OAuth Redirect Issue Resolution
 
 ### Problem
+
 Google OAuth authentication from production (`https://gravity-note.vercel.app/auth/signin`) was redirecting users to `http://localhost:3000/?code=...` instead of staying on the production domain.
 
 ### Root Cause
+
 Missing `NEXT_PUBLIC_BASE_URL` environment variable in the Vercel production deployment, causing the application to fall back to development defaults.
 
 ### Solution Implemented
+
 Enhanced URL resolution with multiple fallback layers:
 
 1. **Runtime browser detection** - `window.location.origin` (most reliable)
-2. **Environment variables** - `NEXT_PUBLIC_BASE_URL` 
+2. **Environment variables** - `NEXT_PUBLIC_BASE_URL`
 3. **Vercel automatic variables** - `VERCEL_URL`
 4. **Production domain detection** - HTTPS enforcement for known domains
 5. **Development fallback** - `http://localhost:3000`
@@ -100,10 +103,12 @@ https://*.vercel.app/auth/auth-code-error
 ### Enhanced URL Resolution Function
 
 The application now uses a sophisticated URL resolution strategy in both:
+
 - `components/auth/auth-form.tsx` - Client-side OAuth initiation
 - `app/auth/callback/route.ts` - Server-side callback handling
 
 Key features:
+
 - **Multi-layered fallbacks** prevent localhost redirects in production
 - **Production domain detection** automatically enforces HTTPS
 - **Header-based resolution** works with Vercel's proxy infrastructure
@@ -123,6 +128,7 @@ Key features:
 **Symptoms**: OAuth login redirects to `http://localhost:3000/?code=...`
 
 **Solution**:
+
 1. Check Vercel environment variables
 2. Ensure `NEXT_PUBLIC_BASE_URL=https://gravity-note.vercel.app`
 3. Redeploy the application
@@ -133,6 +139,7 @@ Key features:
 **Symptoms**: Changes to environment variables don't work
 
 **Solution**:
+
 1. Verify variable is set for correct environment (Production/Preview)
 2. Redeploy the application (environment variables only apply to new deployments)
 3. Check for typos in variable names
@@ -143,6 +150,7 @@ Key features:
 **Symptoms**: Preview branches have incorrect URLs
 
 **Solution**:
+
 - Preview branches automatically use `VERCEL_URL` fallback
 - No additional configuration needed for basic functionality
 - For testing OAuth, add preview URLs to Supabase redirect list
@@ -165,7 +173,11 @@ Production domains automatically enforce HTTPS:
 
 ```typescript
 // Ensure production uses HTTPS
-if (host.includes('vercel.app') || host.includes('gravity-note.') || host.includes('gravity-note-')) {
+if (
+  host.includes('vercel.app') ||
+  host.includes('gravity-note.') ||
+  host.includes('gravity-note-')
+) {
   protocol = 'https'
 }
 ```
@@ -188,6 +200,7 @@ if (host.includes('vercel.app') || host.includes('gravity-note.') || host.includ
 ## Contact and Support
 
 For issues with this configuration:
+
 1. Check Vercel deployment logs
 2. Review Supabase Auth logs
 3. Monitor Sentry error tracking
@@ -195,5 +208,5 @@ For issues with this configuration:
 
 ---
 
-*Last updated: January 2025*
-*Related issues: Production OAuth redirect bug resolution*
+_Last updated: January 2025_
+_Related issues: Production OAuth redirect bug resolution_

@@ -43,11 +43,29 @@ export async function uploadDraft({
   const supabase = createClient()
   const id = localId || randomId()
   const path = buildDraftPath(userId, sessionId, id, file.type)
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type,
-    upsert: false,
+
+  console.log('🚀 Starting draft upload:', {
+    path,
+    fileSize: file.size,
+    fileName: file.name,
+    mimeType: file.type,
+    userId: userId.slice(0, 8) + '...',
+    sessionId: sessionId.slice(0, 8) + '...',
   })
-  if (error) throw new Error(error.message)
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    })
+
+  if (error) {
+    console.error('❌ Draft upload failed:', error)
+    throw new Error(error.message)
+  }
+
+  console.log('✅ Draft upload successful:', { path, uploadData: data })
   return { path }
 }
 
@@ -70,7 +88,56 @@ export async function moveToFinal({
 }): Promise<{ newPath: string }> {
   const supabase = createClient()
   const newPath = buildFinalPath(userId, noteId, attachmentId, draftPath)
-  const { error } = await supabase.storage.from(BUCKET).move(draftPath, newPath)
-  if (error) throw new Error(error.message)
+
+  console.log('🔄 Starting moveToFinal:', {
+    draftPath,
+    newPath,
+    noteId,
+    attachmentId,
+    userId: userId.slice(0, 8) + '...',
+  })
+
+  // First, let's verify the draft file exists before attempting to move
+  const { data: existsData, error: existsError } = await supabase.storage
+    .from(BUCKET)
+    .list(draftPath.split('/').slice(0, -1).join('/'), {
+      search: draftPath.split('/').pop() ?? '',
+    })
+
+  if (existsError) {
+    console.error('❌ Error checking if draft file exists:', existsError)
+  } else {
+    console.log('📋 Draft file existence check:', {
+      searchPath: draftPath.split('/').slice(0, -1).join('/'),
+      searchFilename: draftPath.split('/').pop(),
+      foundFiles: existsData?.map(f => f.name) || [],
+      targetExists:
+        existsData?.some(f => f.name === draftPath.split('/').pop()) || false,
+    })
+  }
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .move(draftPath, newPath)
+
+  if (error) {
+    console.error('❌ moveToFinal failed:', {
+      error,
+      draftPath,
+      newPath,
+      errorDetails: {
+        message: error.message,
+        statusCode: (error as any)?.statusCode,
+        error: (error as any)?.error,
+      },
+    })
+    throw new Error(error.message)
+  }
+
+  console.log('✅ moveToFinal successful:', {
+    draftPath,
+    newPath,
+    moveData: data,
+  })
   return { newPath }
 }

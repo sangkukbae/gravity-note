@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      note_attachments: {
+        Row: {
+          created_at: string
+          height: number | null
+          id: string
+          kind: string
+          mime_type: string | null
+          note_id: string | null
+          size_bytes: number | null
+          storage_path: string
+          user_id: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          note_id?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          user_id: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          note_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          user_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'note_attachments_note_id_fkey'
+            columns: ['note_id']
+            isOneToOne: false
+            referencedRelation: 'notes'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       notes: {
         Row: {
           content: string
@@ -133,6 +180,26 @@ export type Database = {
           updated_at: string
         }[]
       }
+      gtrgm_compress: {
+        Args: { '': unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { '': unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { '': unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { '': unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { '': unknown }
+        Returns: unknown
+      }
       search_notes_enhanced: {
         Args: { max_results?: number; search_query: string; user_uuid: string }
         Returns: {
@@ -149,19 +216,17 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_notes_grouped_by_time: {
-        Args: { user_uuid: string; max_results?: number }
-        Returns: {
-          id: string
-          title: string
-          content: string
-          created_at: string
-          updated_at: string
-          is_rescued: boolean
-          original_note_id: string
-          time_group: string
-          group_rank: number
-        }[]
+      set_limit: {
+        Args: { '': number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { '': string }
+        Returns: string[]
       }
     }
     Enums: {

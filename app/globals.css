@@ -693,17 +693,22 @@
     display: var(--shiki-dark-display);
   }
 
-  /* Override Shiki's default background to maintain transparency */
+  /* Override Shiki's default background to maintain transparency and apply proper theme backgrounds */
   .shiki-container .shiki pre {
     background-color: transparent !important;
   }
 
+  /* Shiki containers use theme-specific backgrounds from the syntax highlighter itself */
+  .shiki-container {
+    /* No additional background needed - Shiki handles theme backgrounds */
+  }
+
   /* Inline code styling to match GitHub - Light Theme Enhanced */
-  .markdown-content code:not(pre code) {
+  /* .markdown-content code:not(pre code) {
     @apply px-1.5 py-0.5 text-sm bg-neutral-100 border border-neutral-300/60 rounded font-mono;
     font-size: 0.875em;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  }
+  } */
 
   /* Enhanced scrollbar for code blocks */
   .code-block-container pre::-webkit-scrollbar {

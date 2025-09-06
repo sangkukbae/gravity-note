@@ -221,15 +221,43 @@ export function useUnifiedSearch() {
           throw new Error(`Failed to search notes: ${error.message}`)
         }
 
+        let rows = data || []
+
+        // No direct substring match? Try a tolerant fallback that allows
+        // arbitrary characters between query characters (e.g. "12312 3" for "123123").
+        if (rows.length === 0 && trimmedQuery.length >= 3) {
+          const expanded = `%${trimmedQuery.split('').join('%')}%`
+          const { data: looseData, error: looseError } = await supabase
+            .from('notes')
+            .select('*')
+            .eq('user_id', user.id)
+            .or(`content.ilike.${expanded},title.ilike.${expanded}`)
+            .order('updated_at', { ascending: false })
+            .limit(maxResults)
+
+          if (!looseError && looseData) {
+            rows = looseData
+          }
+        }
+
         const boundaries = getTemporalBoundaries()
 
-        // Convert to unified format with client-side classification
-        return (data || []).map((note: Note) => ({
+        // Prepare client-side highlighter (<mark>) for substring queries
+        const escapeRegExp = (s: string) =>
+          s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const pattern = new RegExp(`(${escapeRegExp(trimmedQuery)})`, 'gi')
+        const highlight = (text: string | null) => {
+          if (!text) return text as any
+          return text.replace(pattern, '<mark>$1</mark>')
+        }
+
+        // Convert to unified format with client-side classification + highlighting
+        return rows.map((note: Note) => ({
           ...note,
           time_group: classifyNoteByTime(note.updated_at, boundaries),
           group_rank: 1,
-          highlighted_content: note.content,
-          highlighted_title: note.title,
+          highlighted_content: highlight(note.content),
+          highlighted_title: highlight(note.title ?? ''),
           search_rank: 0.5, // Default rank for basic search
         }))
       } catch (err) {
@@ -261,162 +289,86 @@ export function useUnifiedSearch() {
       const isSearchMode = trimmedQuery.length > 0
 
       try {
-        // Use the new unified database function
-        const { data, error } = await supabase.rpc('get_notes_unified', {
-          user_uuid: user.id,
-          max_results: maxResults,
-          group_by_time: groupByTime,
-          ...(isSearchMode ? { search_query: trimmedQuery } : {}),
-        })
+        if (isSearchMode) {
+          // ILIKE-only search path (browser-like substring search)
+          const basicResults = await searchNotesBasic(
+            trimmedQuery,
+            finalOptions
+          )
+          const sections = groupByTime
+            ? groupNotesByTime(basicResults)
+            : [
+                {
+                  timeGroup: 'all' as TimeGroup,
+                  displayName: 'Search Results',
+                  notes: basicResults,
+                  totalCount: basicResults.length,
+                  isExpanded: true,
+                },
+              ]
 
-        if (error) {
-          console.warn(
-            'Unified function failed, falling back to basic search:',
-            error.message
+          const endTime = performance.now()
+          const groupCounts = basicResults.reduce(
+            (acc, note) => {
+              acc[note.time_group] = (acc[note.time_group] || 0) + 1
+              return acc
+            },
+            {} as Record<TimeGroup, number>
           )
 
-          if (isSearchMode) {
-            // Fallback to basic search for search mode
-            const basicResults = await searchNotesBasic(
-              trimmedQuery,
-              finalOptions
-            )
-            const sections = groupByTime
-              ? groupNotesByTime(basicResults)
-              : [
-                  {
-                    timeGroup: 'all' as TimeGroup,
-                    displayName: 'Search Results',
-                    notes: basicResults,
-                    totalCount: basicResults.length,
-                    isExpanded: true,
-                  },
-                ]
-
-            const endTime = performance.now()
-            const groupCounts = basicResults.reduce(
-              (acc, note) => {
-                acc[note.time_group] = (acc[note.time_group] || 0) + 1
-                return acc
-              },
-              {} as Record<TimeGroup, number>
-            )
-
-            return {
-              sections,
-              totalNotes: basicResults.length,
-              metadata: {
-                searchTime: Math.round(endTime - startTime),
-                totalResults: basicResults.length,
-                usedEnhancedSearch: false,
-                query: trimmedQuery,
-                temporalGrouping: groupByTime,
-                groupCounts,
-                mode: 'search',
-              },
-            }
-          } else {
-            // For browse mode, we need to get all notes manually
-            const { data: browseData, error: browseError } = await supabase
-              .from('notes')
-              .select('*')
-              .eq('user_id', user.id)
-              .order('updated_at', { ascending: false })
-              .limit(maxResults)
-
-            if (browseError) {
-              throw new Error(`Failed to browse notes: ${browseError.message}`)
-            }
-
-            const boundaries = getTemporalBoundaries()
-            const browseResults: UnifiedNoteResult[] = (browseData || []).map(
-              (note: Note) => ({
-                ...note,
-                time_group: classifyNoteByTime(note.updated_at, boundaries),
-                group_rank: 1,
-                highlighted_content: note.content,
-                highlighted_title: note.title,
-                search_rank: 0.0,
-              })
-            )
-
-            const sections = groupByTime
-              ? groupNotesByTime(browseResults)
-              : [
-                  {
-                    timeGroup: 'all' as TimeGroup,
-                    displayName: 'All Notes',
-                    notes: browseResults,
-                    totalCount: browseResults.length,
-                    isExpanded: true,
-                  },
-                ]
-
-            const endTime = performance.now()
-            const groupCounts = browseResults.reduce(
-              (acc, note) => {
-                acc[note.time_group] = (acc[note.time_group] || 0) + 1
-                return acc
-              },
-              {} as Record<TimeGroup, number>
-            )
-
-            return {
-              sections,
-              totalNotes: browseResults.length,
-              metadata: {
-                searchTime: Math.round(endTime - startTime),
-                totalResults: browseResults.length,
-                usedEnhancedSearch: false,
-                query: '',
-                temporalGrouping: groupByTime,
-                groupCounts,
-                mode: 'browse',
-              },
-            }
+          return {
+            sections,
+            totalNotes: basicResults.length,
+            metadata: {
+              searchTime: Math.round(endTime - startTime),
+              totalResults: basicResults.length,
+              usedEnhancedSearch: false,
+              query: trimmedQuery,
+              temporalGrouping: groupByTime,
+              groupCounts,
+              mode: 'search',
+            },
           }
         }
 
-        // Convert database results to unified format
-        const unifiedResults: UnifiedNoteResult[] = (data || []).map(
-          (note: any) => ({
-            // Map core note fields from database response
-            id: note.id,
-            user_id: note.user_id || user.id, // Use user.id as fallback if not provided
-            title: note.title,
-            content: note.content,
-            created_at: note.created_at,
-            updated_at: note.updated_at,
-            is_rescued: note.is_rescued,
-            original_note_id: note.original_note_id,
+        // Browse mode with latest notes
+        const { data: browseData, error: browseError } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(maxResults)
 
-            // Map temporal grouping fields
-            time_group: note.time_group as TimeGroup,
-            group_rank: note.group_rank || 1,
+        if (browseError) {
+          throw new Error(`Failed to browse notes: ${browseError.message}`)
+        }
 
-            // Map search/highlighting fields (may not be present in browse mode)
-            highlighted_content: note.highlighted_content || note.content,
-            highlighted_title: note.highlighted_title || note.title,
-            search_rank: note.search_rank || 0,
+        const boundaries = getTemporalBoundaries()
+        const browseResults: UnifiedNoteResult[] = (browseData || []).map(
+          (note: Note) => ({
+            ...note,
+            time_group: classifyNoteByTime(note.updated_at, boundaries),
+            group_rank: 1,
+            highlighted_content: note.content,
+            highlighted_title: note.title,
+            search_rank: 0.0,
           })
         )
 
-        const endTime = performance.now()
-
-        // Group the results
         const sections = groupByTime
-          ? groupNotesByTime(unifiedResults)
+          ? groupNotesByTime(browseResults)
           : [
               {
                 timeGroup: 'all' as TimeGroup,
-                displayName: isSearchMode ? 'Search Results' : 'All Notes',
-                notes: unifiedResults,
-                totalCount: unifiedResults.length,
+                displayName: 'All Notes',
+                notes: browseResults,
+                totalCount: browseResults.length,
                 isExpanded: true,
               },
             ]
 
-        const groupCounts = unifiedResults.reduce(
+        const endTime = performance.now()
+        const groupCounts = browseResults.reduce(
           (acc, note) => {
             acc[note.time_group] = (acc[note.time_group] || 0) + 1
             return acc
@@ -426,15 +378,15 @@ export function useUnifiedSearch() {
 
         return {
           sections,
-          totalNotes: unifiedResults.length,
+          totalNotes: browseResults.length,
           metadata: {
             searchTime: Math.round(endTime - startTime),
-            totalResults: unifiedResults.length,
-            usedEnhancedSearch: true,
-            query: trimmedQuery,
+            totalResults: browseResults.length,
+            usedEnhancedSearch: false,
+            query: '',
             temporalGrouping: groupByTime,
             groupCounts,
-            mode: isSearchMode ? 'search' : 'browse',
+            mode: 'browse',
           },
         }
       } catch (error) {
