@@ -19,7 +19,7 @@ export async function POST() {
     ).toISOString()
 
     // Find orphan attachment rows
-    const { data: rows, error } = await (supabase as any)
+    const { data: rows, error } = await supabase
       .from('note_attachments')
       .select('id, storage_path')
       .eq('user_id', user.id)
@@ -28,16 +28,16 @@ export async function POST() {
 
     if (error) throw error
 
-    const paths = (rows || []).map((r: any) => r.storage_path)
+    const paths = (rows || []).map(r => r.storage_path)
 
     // Delete rows first
     if (rows && rows.length > 0) {
-      await (supabase as any)
+      await supabase
         .from('note_attachments')
         .delete()
         .in(
           'id',
-          rows.map((r: any) => r.id)
+          rows.map(r => r.id)
         )
     }
 

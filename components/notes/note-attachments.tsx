@@ -75,7 +75,7 @@ export function NoteAttachments({
     setHasError(false)
 
     try {
-      const { data, error } = await (supabaseRef.current as any)
+      const { data, error } = await supabaseRef.current
         .from('note_attachments')
         .select('id, storage_path')
         .eq('note_id', noteId)
@@ -83,7 +83,7 @@ export function NoteAttachments({
 
       if (error) throw error
 
-      const rows = (data || []) as Array<{ id: string; storage_path: string }>
+      const rows = data || []
       const limited = rows.slice(0, max)
 
       // Create signed URLs with caching and longer expiry
@@ -160,8 +160,7 @@ export function NoteAttachments({
 
     scheduleRetry(0)
 
-    const client = supabaseRef.current as any
-    const channel = client
+    const channel = supabaseRef.current
       .channel(`note_attachments_${noteId}`)
       .on(
         'postgres_changes',
@@ -180,7 +179,7 @@ export function NoteAttachments({
 
     return () => {
       active = false
-      client.removeChannel(channel)
+      supabaseRef.current.removeChannel(channel)
     }
   }, [noteId, load])
 
