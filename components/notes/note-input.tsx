@@ -556,7 +556,14 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
               />
 
               {/* Content area padding: leaves room for left/right buttons */}
-              <div className='pl-12 pr-16 py-2'>
+              <div
+                className={cn(
+                  'pl-12 pr-16 py-2',
+                  attachments.length === 0
+                    ? 'flex items-center min-h-[48px]'
+                    : 'space-y-2'
+                )}
+              >
                 {/* Preview grid (inside container, above textarea) */}
                 {attachments.length > 0 && (
                   <div className='mb-2 flex gap-2 flex-wrap max-w-full'>
@@ -619,7 +626,10 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                 type='button'
                 onClick={handlePickFiles}
                 className={cn(
-                  'absolute left-3 bottom-3',
+                  'absolute left-3',
+                  isMultiLine || attachments.length > 0
+                    ? 'top-3'
+                    : 'top-1/2 -translate-y-1/2',
                   'w-8 h-8 inline-flex items-center justify-center rounded-md',
                   'text-muted-foreground hover:text-foreground hover:bg-accent/50',
                   'transition-colors'
@@ -644,8 +654,11 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                   'focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0',
                   // Disabled state
                   'disabled:opacity-50 disabled:pointer-events-none',
-                  // Always bottom-right inside the container
-                  'bottom-3 right-3'
+                  // Vertical alignment: center for single-line, top for multiline
+                  'right-3',
+                  isMultiLine || attachments.length > 0
+                    ? 'top-3'
+                    : 'top-1/2 -translate-y-1/2'
                 )}
                 aria-label='Add note'
               >

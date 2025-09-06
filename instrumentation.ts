@@ -19,6 +19,11 @@ export async function register() {
       process.env.VERCEL_GIT_COMMIT_SHA ||
       process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
 
+    // Skip Sentry initialization outside production (e.g., development/test)
+    if (ENVIRONMENT !== 'production') {
+      return
+    }
+
     if (!SENTRY_DSN) {
       return
     }
@@ -38,8 +43,8 @@ export async function register() {
 
       // Error filtering
       beforeSend(event: any) {
-        // Filter out development noise
-        if (ENVIRONMENT === 'development') {
+        // Filter out non-production noise
+        if (ENVIRONMENT !== 'production') {
           // Skip Next.js development warnings
           if (event.logger === 'next-dev') {
             return null
@@ -121,6 +126,11 @@ export async function register() {
       process.env.VERCEL_GIT_COMMIT_SHA ||
       process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
 
+    // Skip Sentry initialization outside production (e.g., development/test)
+    if (ENVIRONMENT !== 'production') {
+      return
+    }
+
     if (!SENTRY_DSN) {
       return
     }
@@ -135,6 +145,8 @@ export async function register() {
       // Release tracking
       ...(EDGE_RELEASE ? { release: EDGE_RELEASE } : {}),
 
+      // Minimal configuration for edge runtime
+
       // Minimal integrations for edge runtime
       integrations: [
         // Only essential integrations due to edge runtime constraints
@@ -142,8 +154,8 @@ export async function register() {
 
       // Error filtering for edge runtime
       beforeSend(event: any) {
-        // Skip development noise
-        if (ENVIRONMENT === 'development' && event.level === 'warning') {
+        // Skip non-production warnings
+        if (ENVIRONMENT !== 'production' && event.level === 'warning') {
           return null
         }
 

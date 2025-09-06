@@ -1,4 +1,5 @@
 import { SentryProvider } from '@/components/providers/sentry-provider'
+import { SentryClientLoader } from '@/components/providers/sentry-client-loader'
 import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 import { ErrorContextProvider } from '@/contexts/error-context'
 import { AuthProvider } from '@/lib/providers/auth-provider'
@@ -8,7 +9,6 @@ import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from 'next-themes'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
-import '../instrumentation-client'
 import './globals.css'
 
 const inter = Inter({
@@ -138,6 +138,7 @@ export default function RootLayout({
     <html lang='en' className={inter.variable} suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
         <SentryProvider>
+          <SentryClientLoader />
           <ThemeProvider
             attribute='class'
             defaultTheme='system'

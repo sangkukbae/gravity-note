@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { createHighlighter } from 'shiki'
 
 interface CodeBlockProps {
   children: string
@@ -22,36 +21,46 @@ const highlightCache = new Map<string, string>()
 let globalHighlighter: any = null
 let globalHighlighterPromise: Promise<any> | null = null
 
+// Dynamically import Shiki on the client to avoid SSR/CJS require issues
 const initHighlighter = () => {
+  if (typeof window === 'undefined') return null
   if (!globalHighlighterPromise) {
-    globalHighlighterPromise = createHighlighter({
-      themes: ['github-light', 'github-dark'],
-      langs: [
-        'typescript',
-        'javascript',
-        'jsx',
-        'tsx',
-        'python',
-        'rust',
-        'go',
-        'java',
-        'cpp',
-        'c',
-        'css',
-        'html',
-        'json',
-        'yaml',
-        'markdown',
-        'bash',
-        'sql',
-        'php',
-      ],
-    }).then(h => (globalHighlighter = h))
+    globalHighlighterPromise = import('shiki/bundle/web')
+      .then(mod => mod.createHighlighter)
+      .then(createHighlighter =>
+        createHighlighter({
+          themes: ['github-light', 'github-dark'],
+          langs: [
+            'typescript',
+            'javascript',
+            'jsx',
+            'tsx',
+            'python',
+            'rust',
+            'go',
+            'java',
+            'cpp',
+            'c',
+            'css',
+            'html',
+            'json',
+            'yaml',
+            'markdown',
+            'bash',
+            'sql',
+            'php',
+          ],
+        })
+      )
+      .then(h => (globalHighlighter = h))
+      .catch(err => {
+        // Swallow errors in non-browser/test environments
+        console.warn('Failed to initialize Shiki highlighter:', err)
+        globalHighlighterPromise = null
+      })
   }
+  return globalHighlighterPromise
 }
-
-// Kick off initialization at module load
-initHighlighter()
 
 /**
  * GitHub-style code block component with syntax highlighting and copy functionality
@@ -106,7 +115,7 @@ export const CodeBlock = React.memo(function CodeBlock({
     setIsHighlighting(true)
 
     try {
-      // Ensure highlighter is ready (already started at module load)
+      // Ensure highlighter is ready (client-only, dynamic import)
       if (!globalHighlighter) {
         await (globalHighlighterPromise ?? initHighlighter())
       }
@@ -117,11 +126,11 @@ export const CodeBlock = React.memo(function CodeBlock({
         return
       }
 
-      const lightHtml = highlighter.codeToHtml(cleanCode, {
+      const lightHtml = highlighter?.codeToHtml?.(cleanCode, {
         lang: detectedLanguage,
         theme: 'github-light',
       })
-      const darkHtml = highlighter.codeToHtml(cleanCode, {
+      const darkHtml = highlighter?.codeToHtml?.(cleanCode, {
         lang: detectedLanguage,
         theme: 'github-dark',
       })
@@ -129,10 +138,10 @@ export const CodeBlock = React.memo(function CodeBlock({
       // Create dual-theme HTML structure
       const dualThemeHtml = `
         <div class="shiki-light" style="display: var(--shiki-light-display, block);">
-          ${lightHtml}
+          ${lightHtml ?? ''}
         </div>
         <div class="shiki-dark" style="display: var(--shiki-dark-display, none);">
-          ${darkHtml}
+          ${darkHtml ?? ''}
         </div>
       `
 
@@ -160,6 +169,8 @@ export const CodeBlock = React.memo(function CodeBlock({
     mountedRef.current = true
     setMounted(true)
 
+    // Initialize highlighter on mount; highlighting runs after ready
+    initHighlighter()
     highlightCode()
 
     return () => {

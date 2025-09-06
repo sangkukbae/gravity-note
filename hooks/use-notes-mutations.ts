@@ -147,12 +147,12 @@ export function useNotesMutations() {
   const offline = useOfflineStatus()
   const { trackNoteCreation, trackNoteRescue, trackSearch, trackError } =
     useAnalytics()
+  // Keep network checks lightweight in frequently-mounted hooks
+  // Avoid per-instance quality tests that call /api/health on mount
   const networkStatus = useNetworkStatus({
     pingUrl: '/manifest.json',
     pingIntervalMs: 30000,
-    enableQualityMonitoring: true,
-    qualityTestUrl: '/api/health',
-    qualityTestIntervalMs: 120000,
+    enableQualityMonitoring: false,
   })
 
   // Initialize unified search hook for enhanced search capabilities

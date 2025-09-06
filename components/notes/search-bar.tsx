@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { SearchIcon, XIcon } from 'lucide-react'
+import { SearchIcon, XIcon, LoaderIcon } from 'lucide-react'
+import { SearchState } from '@/hooks/use-search-state'
 
 interface SearchBarProps {
   value: string
@@ -16,6 +17,7 @@ interface SearchBarProps {
   onToggle?: () => void
   showToggle?: boolean
   disabled?: boolean
+  searchState?: SearchState // New prop for enhanced UX
 }
 
 export function SearchBar({
@@ -28,6 +30,7 @@ export function SearchBar({
   onToggle,
   showToggle = true,
   disabled,
+  searchState, // New prop
 }: SearchBarProps) {
   const [localValue, setLocalValue] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -53,6 +56,27 @@ export function SearchBar({
     }
   }, [isOpen])
 
+  // State-aware placeholder and visual feedback
+  const getStatePlaceholder = () => {
+    if (!searchState) return placeholder
+
+    switch (searchState.mode) {
+      case 'search-loading':
+        return 'Searching your thoughts...'
+      case 'search-clearing':
+        return 'Clearing search...'
+      case 'search-empty':
+        return 'Start typing to search...'
+      case 'search-results':
+        return `Found ${searchState.results.length} ${searchState.results.length === 1 ? 'note' : 'notes'}`
+      default:
+        return placeholder
+    }
+  }
+
+  const isTransitioning = searchState?.isTransitioning || false
+  const isLoading = searchState?.mode === 'search-loading'
+
   const handleClear = () => {
     setLocalValue('')
     onChange('')
@@ -77,20 +101,25 @@ export function SearchBar({
     return (
       <div className={cn('relative w-full max-w-[600px] mx-auto', className)}>
         <div className='relative'>
-          <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
+          {isLoading ? (
+            <LoaderIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin' />
+          ) : (
+            <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
+          )}
           <Input
             ref={inputRef}
             type='text'
             value={localValue}
             onChange={e => setLocalValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder={getStatePlaceholder()}
             className={cn(
               'pl-10 pr-10 w-full',
-              'focus-visible:ring-2 focus-visible:ring-primary'
+              'focus-visible:ring-2 focus-visible:ring-primary',
+              isTransitioning && 'opacity-75 transition-opacity duration-200'
             )}
             aria-label='Search notes'
-            disabled={!!disabled}
+            disabled={!!disabled || isTransitioning}
           />
           {localValue && (
             <Button
@@ -99,7 +128,7 @@ export function SearchBar({
               size='sm'
               className='absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0'
               aria-label='Clear search'
-              disabled={!!disabled}
+              disabled={!!disabled || isTransitioning}
             >
               <XIcon className='h-3 w-3' />
             </Button>
@@ -123,7 +152,7 @@ export function SearchBar({
             'transition-colors duration-150'
           )}
           aria-label='Open search'
-          disabled={!!disabled}
+          disabled={!!disabled || isTransitioning}
         >
           <SearchIcon className='h-4 w-4' />
         </Button>
@@ -133,20 +162,25 @@ export function SearchBar({
       {isOpen && (
         <div className='flex items-center gap-2 w-full max-w-[600px] mx-auto'>
           <div className='relative flex-1'>
-            <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
+            {isLoading ? (
+              <LoaderIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin' />
+            ) : (
+              <SearchIcon className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
+            )}
             <Input
               ref={inputRef}
               type='text'
               value={localValue}
               onChange={e => setLocalValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder}
+              placeholder={getStatePlaceholder()}
               className={cn(
                 'pl-10 pr-10 w-full',
-                'focus-visible:ring-2 focus-visible:ring-primary'
+                'focus-visible:ring-2 focus-visible:ring-primary',
+                isTransitioning && 'opacity-75 transition-opacity duration-200'
               )}
               aria-label='Search notes'
-              disabled={!!disabled}
+              disabled={!!disabled || isTransitioning}
             />
             {localValue && (
               <Button
@@ -155,7 +189,7 @@ export function SearchBar({
                 size='sm'
                 className='absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0'
                 aria-label='Clear search'
-                disabled={!!disabled}
+                disabled={!!disabled || isTransitioning}
               >
                 <XIcon className='h-3 w-3' />
               </Button>
@@ -169,7 +203,7 @@ export function SearchBar({
               size='sm'
               className='h-10 w-10 p-0'
               aria-label='Close search'
-              disabled={!!disabled}
+              disabled={!!disabled || isTransitioning}
             >
               <XIcon className='h-4 w-4' />
             </Button>
