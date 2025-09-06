@@ -74,6 +74,7 @@ export const NotesContainer = forwardRef<
     const [isCreating, setIsCreating] = useState(false)
     const [isRescuing, setIsRescuing] = useState(false)
     const [rescuingId, setRescuingId] = useState<string>()
+    const [recentlyRescuedId, setRecentlyRescuedId] = useState<string>()
     const [internalSearchQuery, setInternalSearchQuery] = useState('')
     const [isSearchOpen, setIsSearchOpen] = useState(false)
     const [isSearching, setIsSearching] = useState(false)
@@ -211,6 +212,9 @@ export const NotesContainer = forwardRef<
           // Optimistically add to top of list
           setNotes(prevNotes => [newNote, ...prevNotes])
 
+          // New note supersedes any previous rescued highlight
+          setRecentlyRescuedId(undefined)
+
           // Toast is handled by the parent component (dashboard)
           return newNote
         } catch (error) {
@@ -249,6 +253,13 @@ export const NotesContainer = forwardRef<
 
             return [rescuedNote, ...otherNotes]
           })
+
+          // Mark this note as recently rescued so the UI can display
+          // a transient badge/highlight even if ordering jitters.
+          setRecentlyRescuedId(noteId)
+
+          // Auto-clear after a short duration (e.g., 15s)
+          window.setTimeout(() => setRecentlyRescuedId(undefined), 15000)
 
           // Toast is handled by the parent component (dashboard)
         } catch (error) {
@@ -484,6 +495,9 @@ export const NotesContainer = forwardRef<
                 isLoading={isSearching}
                 isRescuing={isRescuing}
                 {...(typeof rescuingId !== 'undefined' ? { rescuingId } : {})}
+                {...(recentlyRescuedId
+                  ? { highlightNoteId: recentlyRescuedId }
+                  : {})}
                 searchQuery={searchQuery}
                 onSearchChange={handleSearch}
                 searchState={searchStateValue}

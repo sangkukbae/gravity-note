@@ -149,6 +149,7 @@ export const GroupedNoteList = memo(function GroupedNoteList({
           onToggleSection={handleToggleSection}
           showSectionDivider={sectionIndex < visibleSections.length - 1}
           enableVirtualization={section.totalCount > virtualizeThreshold}
+          isFirstSection={sectionIndex === 0}
         />
       ))}
 

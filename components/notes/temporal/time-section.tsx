@@ -20,6 +20,9 @@ interface TimeSectionProps {
   onToggleSection?: (timeGroup: TimeGroup) => void
   showSectionDivider?: boolean
   enableVirtualization?: boolean
+  // Whether this section is the first section on the page.
+  // We only show the rescued badge for the first note of the first section.
+  isFirstSection?: boolean
 }
 
 export const TimeSection = memo(function TimeSection({
@@ -31,6 +34,7 @@ export const TimeSection = memo(function TimeSection({
   onToggleSection,
   showSectionDivider = false,
   enableVirtualization = false, // For future implementation
+  isFirstSection = false,
 }: TimeSectionProps) {
   // Memoized section statistics
   const sectionStats: TimeSectionStats = useMemo(() => {
@@ -83,6 +87,7 @@ export const TimeSection = memo(function TimeSection({
           isRescuing={isCurrentlyRescuing}
           showRescueButton={!isFirstInSection} // Don't show rescue for first note in section
           showDivider={false} // Handled by container
+          showRescuedBadge={isFirstSection && isFirstInSection}
           {...(onRescue ? { onRescue } : {})}
         />
       </div>
