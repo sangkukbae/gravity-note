@@ -43,6 +43,7 @@ import {
   classifyError,
   formatErrorForLogging,
 } from '@/lib/errors/classification'
+import { useAnalytics } from './use-analytics'
 
 function cryptoRandomId(): string {
   const cryptoObj =
@@ -144,6 +145,8 @@ export function useNotesMutations() {
   const { user } = useAuthStore()
   const supabase = createClient()
   const offline = useOfflineStatus()
+  const { trackNoteCreation, trackNoteRescue, trackSearch, trackError } =
+    useAnalytics()
   const networkStatus = useNetworkStatus({
     pingUrl: '/manifest.json',
     pingIntervalMs: 30000,
@@ -388,6 +391,14 @@ export function useNotesMutations() {
         }
         return [newNote, ...oldNotes]
       })
+
+      // Track analytics for note creation
+      trackNoteCreation({
+        noteId: newNote.id,
+        contentLength: newNote.content.length,
+        hasMarkdown: /[#*`_~\[\](){}]|```/.test(newNote.content),
+        creationMethod: 'input', // Can be enhanced to detect actual method
+      })
     },
     onError: error => {
       // Log additional error context
@@ -478,6 +489,15 @@ export function useNotesMutations() {
             new Date(a.updated_at ?? a.created_at ?? 0).getTime()
         )
       })
+
+      // Track analytics for note rescue (if is_rescued is true)
+      if (updatedNote.is_rescued) {
+        trackNoteRescue({
+          noteId: updatedNote.id,
+          contentLength: updatedNote.content.length,
+          hasMarkdown: /[#*`_~\[\](){}]|```/.test(updatedNote.content),
+        })
+      }
     },
     onError: error => {
       console.error('Update note mutation error:', {
@@ -753,11 +773,20 @@ export function useNotesMutations() {
         }
 
         const endTime = performance.now()
+        const searchTime = Math.round(endTime - startTime)
+
+        // Track search analytics
+        trackSearch({
+          query: trimmedQuery,
+          resultCount: results.length,
+          searchTime,
+          searchType: 'enhanced',
+        })
 
         return {
           results,
           metadata: {
-            searchTime: Math.round(endTime - startTime),
+            searchTime,
             totalResults: results.length,
             usedEnhancedSearch: true,
             query: trimmedQuery,
@@ -769,6 +798,15 @@ export function useNotesMutations() {
         // Fallback to basic search
         const basicResults = await searchNotesBasic(trimmedQuery, maxResults)
         const endTime = performance.now()
+        const searchTime = Math.round(endTime - startTime)
+
+        // Track fallback search analytics
+        trackSearch({
+          query: trimmedQuery,
+          resultCount: basicResults.length,
+          searchTime,
+          searchType: 'basic',
+        })
 
         return {
           results: basicResults.map(note => ({
@@ -778,7 +816,7 @@ export function useNotesMutations() {
             search_rank: 0.5, // Default rank for basic search
           })),
           metadata: {
-            searchTime: Math.round(endTime - startTime),
+            searchTime,
             totalResults: basicResults.length,
             usedEnhancedSearch: false,
             query: trimmedQuery,

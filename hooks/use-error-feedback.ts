@@ -423,7 +423,13 @@ export function useErrorFeedback(config: FeedbackConfig = {}) {
           )
         }
       } catch (sentryError) {
-        console.warn('Sentry submission failed:', sentryError)
+        if (
+          process.env.NODE_ENV === 'development' ||
+          process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
+        ) {
+          // eslint-disable-next-line no-console
+          console.warn('Sentry submission failed:', sentryError)
+        }
         return undefined
       }
     },
