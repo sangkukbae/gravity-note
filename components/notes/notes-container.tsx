@@ -74,7 +74,7 @@ export const NotesContainer = forwardRef<
     const [isCreating, setIsCreating] = useState(false)
     const [isRescuing, setIsRescuing] = useState(false)
     const [rescuingId, setRescuingId] = useState<string>()
-    const [recentlyRescuedId, setRecentlyRescuedId] = useState<string>()
+    const [topHighlightActive, setTopHighlightActive] = useState(false)
     const [internalSearchQuery, setInternalSearchQuery] = useState('')
     const [isSearchOpen, setIsSearchOpen] = useState(false)
     const [isSearching, setIsSearching] = useState(false)
@@ -212,8 +212,7 @@ export const NotesContainer = forwardRef<
           // Optimistically add to top of list
           setNotes(prevNotes => [newNote, ...prevNotes])
 
-          // New note supersedes any previous rescued highlight
-          setRecentlyRescuedId(undefined)
+          // No rescued highlight local state to clear anymore
 
           // Toast is handled by the parent component (dashboard)
           return newNote
@@ -254,12 +253,11 @@ export const NotesContainer = forwardRef<
             return [rescuedNote, ...otherNotes]
           })
 
-          // Mark this note as recently rescued so the UI can display
-          // a transient badge/highlight even if ordering jitters.
-          setRecentlyRescuedId(noteId)
+          // Local state no longer manages rescued highlight.
 
-          // Auto-clear after a short duration (e.g., 15s)
-          window.setTimeout(() => setRecentlyRescuedId(undefined), 15000)
+          // No timeout-based clearing. The highlight persists until a
+          // different note becomes the top-most (new note or another
+          // rescue), which is handled by the effect below.
 
           // Toast is handled by the parent component (dashboard)
         } catch (error) {
@@ -272,6 +270,9 @@ export const NotesContainer = forwardRef<
       },
       [onRescueNote]
     )
+
+    // Removed: local rescued highlight management. We now rely solely
+    // on server-provided is_rescued flag for visual accents.
 
     // Enhanced search handler with state machine
     const handleSearch = useCallback(
@@ -371,11 +372,35 @@ export const NotesContainer = forwardRef<
     }, [])
 
     // Handle external search query changes
+    // Avoid triggering transitional "search-clearing" state on empty query
+    // which can cause a brief preview list flash on initial load.
+    const prevExternalQueryRef = useRef<string | undefined>(undefined)
     useEffect(() => {
-      if (externalSearchControl && externalSearchQuery !== undefined) {
-        handleSearch(externalSearchQuery)
+      if (!externalSearchControl) return
+
+      const q = externalSearchQuery ?? ''
+      const hasQuery = q.trim().length > 0
+      const prevHadQuery =
+        (prevExternalQueryRef.current ?? '').trim().length > 0
+
+      if (hasQuery) {
+        // Only invoke search when a non-empty query is provided.
+        handleSearch(q)
+      } else if (prevHadQuery) {
+        // External controller cleared the query – reset immediately without
+        // the animated clearing state to prevent flicker.
+        setNotes(initialNotes)
+        completeClear()
       }
-    }, [externalSearchQuery, externalSearchControl, handleSearch])
+
+      prevExternalQueryRef.current = q
+    }, [
+      externalSearchQuery,
+      externalSearchControl,
+      handleSearch,
+      initialNotes,
+      completeClear,
+    ])
 
     // Enhanced clear search handler with smooth transitions
     const handleClearSearch = useCallback(() => {
@@ -495,9 +520,6 @@ export const NotesContainer = forwardRef<
                 isLoading={isSearching}
                 isRescuing={isRescuing}
                 {...(typeof rescuingId !== 'undefined' ? { rescuingId } : {})}
-                {...(recentlyRescuedId
-                  ? { highlightNoteId: recentlyRescuedId }
-                  : {})}
                 searchQuery={searchQuery}
                 onSearchChange={handleSearch}
                 searchState={searchStateValue}

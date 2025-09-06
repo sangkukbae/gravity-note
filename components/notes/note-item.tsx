@@ -183,7 +183,7 @@ export const NoteItem = memo(function NoteItem({
           'transition-colors duration-150 ease-out',
           // Clean rescued note accent - minimal but clear
           showRescuedAccent &&
-            'bg-primary/3 border-l-2 border-l-primary/50 pl-6',
+            'note-card-rescued border-l-2 border-l-primary/50 pl-6',
           // Modern focus styles
           'focus-within:bg-muted/40 focus-within:outline-none',
           // Smooth interactive states

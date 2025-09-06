@@ -73,7 +73,7 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
             // Fallback for non-code pre elements
             return (
               <pre
-                className='whitespace-pre-wrap font-mono text-sm p-4 bg-muted/50 rounded-lg border border-border'
+                className='whitespace-pre-wrap font-mono text-sm p-4 rounded-lg border border-border'
                 {...props}
               >
                 {children}

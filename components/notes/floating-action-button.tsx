@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { PlusIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isMac } from '@/lib/utils/keyboard'
 import { forwardRef } from 'react'
 
 interface FloatingActionButtonProps {
@@ -20,6 +21,10 @@ export const FloatingActionButton = forwardRef<
     { onClick, className, disabled = false, 'aria-label': ariaLabel, ...props },
     ref
   ) => {
+    const tooltip = isMac()
+      ? 'Create new note (Cmd+N)'
+      : 'Create new note (Ctrl+N)'
+
     return (
       <Button
         ref={ref}
@@ -53,6 +58,7 @@ export const FloatingActionButton = forwardRef<
           className
         )}
         aria-label={ariaLabel || 'Create new note'}
+        title={tooltip}
         {...props}
       >
         <PlusIcon className='h-10 w-10' />

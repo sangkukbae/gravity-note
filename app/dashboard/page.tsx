@@ -473,26 +473,40 @@ export default function DashboardPage() {
                 {offline.effectiveOnline && (
                   <>
                     {realtimeState.connectionStatus === 'connecting' ? (
-                      <div className='flex items-center gap-1 text-xs text-blue-600'>
+                      <div
+                        className='flex items-center gap-1 text-xs text-blue-600'
+                        title='Connecting to real-time sync… Changes will update once connected.'
+                        aria-label='Connecting to real-time sync'
+                      >
                         <div className='w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse'></div>
                         <span className='text-[10px] font-medium uppercase tracking-wide'>
                           Connecting
                         </span>
                       </div>
                     ) : realtimeState.isRealtimeConnected ? (
-                      <div className='flex items-center gap-1 text-xs text-green-600'>
+                      <div
+                        className='flex items-center gap-1 text-xs text-green-600'
+                        title='Live: Real-time sync is active. Changes appear instantly across your devices.'
+                        aria-label='Real-time sync is active'
+                      >
                         <div className='w-1.5 h-1.5 bg-green-500 rounded-full'></div>
                         <span className='text-[10px] font-medium uppercase tracking-wide'>
                           Live
                         </span>
                       </div>
                     ) : (
-                      <div className='flex items-center gap-1 text-xs text-red-600'>
+                      <button
+                        type='button'
+                        onClick={() => reconnectRealtime?.()}
+                        className='flex items-center gap-1 text-xs text-red-600 cursor-pointer'
+                        title='Real-time disconnected. Click to retry connection. Updates may be delayed.'
+                        aria-label='Real-time disconnected. Click to retry.'
+                      >
                         <div className='w-1.5 h-1.5 bg-red-500 rounded-full'></div>
                         <span className='text-[10px] font-medium uppercase tracking-wide'>
                           Realtime Disconnected
                         </span>
-                      </div>
+                      </button>
                     )}
                   </>
                 )}
