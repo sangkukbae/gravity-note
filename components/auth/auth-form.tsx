@@ -185,24 +185,32 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         if (error) {
           setError(error.message)
+          setLoading(false)
         } else {
           setMessage('Check your email for the confirmation link!')
+          setLoading(false)
         }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-
-        if (error) {
-          setError(error.message)
-        } else {
-          router.push('/dashboard')
-        }
+        return
       }
+
+      // Sign-in with password
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+        return
+      }
+
+      // On success, navigate and keep loading state true so the
+      // submit button stays disabled during the transition.
+      router.push('/dashboard')
+      // Do not reset loading here; component will unmount on navigation.
     } catch (err) {
       setError('An unexpected error occurred')
-    } finally {
       setLoading(false)
     }
   }
@@ -221,10 +229,11 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       if (error) {
         setError(error.message)
+        setLoading(false)
       }
+      // On success, Supabase will redirect; keep loading true so UI stays disabled.
     } catch (err) {
       setError('An unexpected error occurred')
-    } finally {
       setLoading(false)
     }
   }

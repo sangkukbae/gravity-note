@@ -1,8 +1,14 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import {
+  oneLight,
+  oneDark,
+} from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { useTheme } from 'next-themes'
 
 interface CodeBlockProps {
   children: string
@@ -14,57 +20,9 @@ interface CodeBlockProps {
   language?: string
 }
 
-// Global cache for highlighted code to prevent re-highlighting identical content
-const highlightCache = new Map<string, string>()
-
-// Global highlighter instance to avoid recreating (eager, static import)
-let globalHighlighter: any = null
-let globalHighlighterPromise: Promise<any> | null = null
-
-// Dynamically import Shiki on the client to avoid SSR/CJS require issues
-const initHighlighter = () => {
-  if (typeof window === 'undefined') return null
-  if (!globalHighlighterPromise) {
-    globalHighlighterPromise = import('shiki/bundle/web')
-      .then(mod => mod.createHighlighter)
-      .then(createHighlighter =>
-        createHighlighter({
-          themes: ['github-light', 'github-dark'],
-          langs: [
-            'typescript',
-            'javascript',
-            'jsx',
-            'tsx',
-            'python',
-            'rust',
-            'go',
-            'java',
-            'cpp',
-            'c',
-            'css',
-            'html',
-            'json',
-            'yaml',
-            'markdown',
-            'bash',
-            'sql',
-            'php',
-          ],
-        })
-      )
-      .then(h => (globalHighlighter = h))
-      .catch(err => {
-        // Swallow errors in non-browser/test environments
-        console.warn('Failed to initialize Shiki highlighter:', err)
-        globalHighlighterPromise = null
-      })
-  }
-  return globalHighlighterPromise
-}
-
 /**
  * GitHub-style code block component with syntax highlighting and copy functionality
- * Uses Shiki for syntax highlighting with proper theme integration and stable re-rendering
+ * Uses React Syntax Highlighter (Prism.js) for static highlighting without dynamic imports
  */
 export const CodeBlock = React.memo(function CodeBlock({
   children,
@@ -73,118 +31,41 @@ export const CodeBlock = React.memo(function CodeBlock({
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [highlightedCode, setHighlightedCode] = useState<string>('')
-  const [isHighlighting, setIsHighlighting] = useState(false)
-  const highlightingRef = useRef<AbortController | null>(null)
-  const mountedRef = useRef(false)
+  const { resolvedTheme } = useTheme()
 
-  // Extract language from className (markdown-to-jsx format: 'language-typescript')
-  const detectedLanguage = useMemo<string>(() => {
-    if (language && language.trim()) return language
-    const match = className?.match(/language-([\w-]+)/)
-    return match?.[1] ?? 'typescript'
+  // Extract and normalize language from className (markdown-to-jsx format: 'language-typescript')
+  const detectedLanguage = useMemo(() => {
+    let rawLanguage = language?.trim()
+    if (!rawLanguage) {
+      const match = className?.match(/language-([\w-]+)/)
+      rawLanguage = match?.[1] ?? 'typescript'
+    }
+    // Normalize common language aliases
+    const languageMap: Record<string, string> = {
+      ts: 'typescript',
+      js: 'javascript',
+      py: 'python',
+      sh: 'bash',
+      shell: 'bash',
+      shellscript: 'bash',
+      zsh: 'bash',
+      yml: 'yaml',
+      md: 'markdown',
+      cpp: 'cpp',
+      'c++': 'cpp',
+    }
+    return languageMap[rawLanguage.toLowerCase()] || rawLanguage.toLowerCase()
   }, [className, language])
 
-  // Clean up the code content (remove extra whitespace) - memoized to prevent unnecessary recalculations
+  // Clean up the code content (remove extra whitespace)
   const cleanCode = useMemo(() => children.trim(), [children])
 
-  // Create a stable cache key for this specific code block
-  const cacheKey = useMemo(() => {
-    return `${cleanCode}:${detectedLanguage}`
-  }, [cleanCode, detectedLanguage])
-
-  // Stable highlight function that uses caching and prevents concurrent highlighting
-  const highlightCode = useCallback(async () => {
-    // Don't highlight if component is unmounted or already highlighting the same content
-    if (!mountedRef.current) return
-
-    // Check cache first
-    const cachedResult = highlightCache.get(cacheKey)
-    if (cachedResult) {
-      setHighlightedCode(cachedResult)
-      return
-    }
-
-    // Prevent concurrent highlighting of the same content
-    if (highlightingRef.current) {
-      highlightingRef.current.abort()
-    }
-
-    const controller = new AbortController()
-    highlightingRef.current = controller
-    setIsHighlighting(true)
-
-    try {
-      // Ensure highlighter is ready (client-only, dynamic import)
-      if (!globalHighlighter) {
-        await (globalHighlighterPromise ?? initHighlighter())
-      }
-      const highlighter = globalHighlighter
-
-      // Check if operation was aborted or component unmounted
-      if (controller.signal.aborted || !mountedRef.current) {
-        return
-      }
-
-      const lightHtml = highlighter?.codeToHtml?.(cleanCode, {
-        lang: detectedLanguage,
-        theme: 'github-light',
-      })
-      const darkHtml = highlighter?.codeToHtml?.(cleanCode, {
-        lang: detectedLanguage,
-        theme: 'github-dark',
-      })
-
-      // Create dual-theme HTML structure
-      const dualThemeHtml = `
-        <div class="shiki-light" style="display: var(--shiki-light-display, block);">
-          ${lightHtml ?? ''}
-        </div>
-        <div class="shiki-dark" style="display: var(--shiki-dark-display, none);">
-          ${darkHtml ?? ''}
-        </div>
-      `
-
-      // Final check before setting state
-      if (!controller.signal.aborted && mountedRef.current) {
-        // Cache the result for future use
-        highlightCache.set(cacheKey, dualThemeHtml)
-        setHighlightedCode(dualThemeHtml)
-      }
-    } catch (error) {
-      if (!controller.signal.aborted) {
-        console.warn('Shiki highlighting failed:', error)
-        setHighlightedCode('')
-      }
-    } finally {
-      if (!controller.signal.aborted && mountedRef.current) {
-        setIsHighlighting(false)
-        highlightingRef.current = null
-      }
-    }
-  }, [cacheKey, cleanCode, detectedLanguage])
-
-  // Client-side syntax highlighting with stable mounting and caching
+  // Set mounted state
   useEffect(() => {
-    mountedRef.current = true
     setMounted(true)
+  }, [])
 
-    // Initialize highlighter on mount; highlighting runs after ready
-    initHighlighter()
-    highlightCode()
-
-    return () => {
-      mountedRef.current = false
-      if (highlightingRef.current) {
-        highlightingRef.current.abort()
-        highlightingRef.current = null
-      }
-    }
-  }, [highlightCode])
-
-  // Static import + eager init removes the need for additional prewarm hooks
-
-  // Copy to clipboard functionality - memoized to prevent recreation on re-renders
+  // Copy to clipboard functionality
   const copyToClipboard = useCallback(async () => {
     if (!mounted) return
 
@@ -197,8 +78,8 @@ export const CodeBlock = React.memo(function CodeBlock({
     }
   }, [mounted, cleanCode])
 
-  // Prefer showing plain code fallback while highlighting to avoid a visual "loading" state
-  const shouldShowFallback = !highlightedCode
+  // Select theme based on current theme with proper background enforcement
+  const syntaxStyle = resolvedTheme === 'dark' ? oneDark : oneLight
 
   return (
     <div className={cn('code-block-container group relative my-4', className)}>
@@ -226,18 +107,33 @@ export const CodeBlock = React.memo(function CodeBlock({
       {/* Code block with syntax highlighting */}
       <div
         className={cn(
-          'relative overflow-hidden rounded-lg border border-border',
-          highlightedCode ? 'bg-muted/50 dark:bg-muted/30' : 'bg-transparent'
+          'relative overflow-hidden rounded-lg border border-border'
         )}
       >
-        {mounted && highlightedCode ? (
-          // Highlighted code - stable and cached
-          <div
-            className='shiki-container overflow-x-auto text-sm [&_pre]:!bg-transparent [&_pre]:!p-4 [&_pre]:!m-0 [&_pre]:!border-0'
-            dangerouslySetInnerHTML={{ __html: highlightedCode }}
-          />
-        ) : shouldShowFallback ? (
-          // Fallback for SSR, initial load, or failed highlighting - only show when necessary
+        {mounted ? (
+          // React Syntax Highlighter - renders immediately, no loading states needed
+          <SyntaxHighlighter
+            language={detectedLanguage}
+            style={syntaxStyle}
+            customStyle={{
+              margin: 0,
+              padding: '1rem',
+              fontSize: '0.875rem',
+              lineHeight: '1.25rem',
+              border: 'none',
+              // ...(resolvedTheme === 'dark' && { background: '#262626' }),
+            }}
+            codeTagProps={{
+              style: {
+                fontFamily:
+                  'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+              },
+            }}
+          >
+            {cleanCode}
+          </SyntaxHighlighter>
+        ) : (
+          // SSR fallback - plain code
           <pre
             className={cn(
               'overflow-x-auto p-4 text-sm font-mono',
@@ -247,7 +143,7 @@ export const CodeBlock = React.memo(function CodeBlock({
           >
             <code className='text-inherit bg-transparent'>{cleanCode}</code>
           </pre>
-        ) : null}
+        )}
       </div>
     </div>
   )
