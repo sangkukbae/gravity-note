@@ -16,6 +16,7 @@ import {
 
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || undefined
 const ENVIRONMENT = process.env.NODE_ENV || 'development'
+const DEBUG_ENABLED = process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
 
 // Only initialize if DSN is available
 // Ensure this only runs in the browser to avoid SSR errors
@@ -33,12 +34,17 @@ if (SENTRY_DSN && typeof window !== 'undefined') {
 
     // Integrations
     integrations: [
-      replayIntegration({
-        // Mask all text content, images, and user inputs
-        maskAllText: true,
-        maskAllInputs: true,
-        blockAllMedia: true,
-      }),
+      // Only include Replay integration when it could actually be active
+      ...(ENVIRONMENT === 'production'
+        ? [
+            replayIntegration({
+              // Mask all text content, images, and user inputs
+              maskAllText: true,
+              maskAllInputs: true,
+              blockAllMedia: true,
+            }),
+          ]
+        : []),
       browserTracingIntegration({
         // Capture interactions like clicks, form submissions
         enableInp: true,
@@ -113,8 +119,8 @@ if (SENTRY_DSN && typeof window !== 'undefined') {
     // Privacy settings
     sendDefaultPii: false,
 
-    // Debug mode for development
-    debug: ENVIRONMENT === 'development',
+    // Disable noisy SDK logger unless explicitly enabled
+    debug: !!DEBUG_ENABLED,
 
     // Custom error tags
     initialScope: {
