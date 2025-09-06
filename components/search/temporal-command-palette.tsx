@@ -185,6 +185,13 @@ export function TemporalCommandPalette({
       }
     }
 
+    // Only fetch when dialog is open to avoid unnecessary work
+    if (!open) {
+      return () => {
+        cancelled = true
+      }
+    }
+
     // Debounce search queries, but load browse data immediately
     if (isSearchMode) {
       const timer = setTimeout(fetchData, DEBOUNCE_DELAY)
@@ -199,7 +206,7 @@ export function TemporalCommandPalette({
     return () => {
       cancelled = true
     }
-  }, [query, isSearchMode, useUnifiedApproach])
+  }, [open, query, isSearchMode, useUnifiedApproach])
 
   // Reset state when modal closes
   useEffect(() => {
