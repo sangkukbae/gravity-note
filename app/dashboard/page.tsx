@@ -156,10 +156,8 @@ export default function DashboardPage() {
   // Handle search result selection
   const handleSearchResultSelect = useCallback(
     (result: UnifiedNoteResult | Note) => {
-      // For now, just log the selection - you can navigate to the note here
-      console.log('Search result selected:', result.id)
-      toast.success('Note selected!')
-      // TODO: Implement navigation to note (could open in modal, navigate, etc.)
+      // Smoothly scroll main list to the selected note
+      notesContainerRef.current?.scrollToNote(result.id)
     },
     []
   )

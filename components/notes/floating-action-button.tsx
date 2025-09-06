@@ -55,7 +55,7 @@ export const FloatingActionButton = forwardRef<
         aria-label={ariaLabel || 'Create new note'}
         {...props}
       >
-        <PlusIcon className='h-6 w-6' />
+        <PlusIcon className='h-10 w-10' />
       </Button>
     )
   }

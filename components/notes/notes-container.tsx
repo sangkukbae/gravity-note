@@ -43,6 +43,8 @@ interface NotesContainerProps {
 export interface NotesContainerRef {
   focusInput: () => void
   openNoteModal: () => void
+  /** Smoothly scrolls to a note in the list by id */
+  scrollToNote: (noteId: string) => void
 }
 
 export const NotesContainer = forwardRef<
@@ -100,6 +102,34 @@ export const NotesContainer = forwardRef<
         },
         openNoteModal: () => {
           setIsModalOpen(true)
+        },
+        scrollToNote: (noteId: string) => {
+          // Find note element rendered by NoteList
+          const el = (document.querySelector(`[data-note-id="${noteId}"]`) ||
+            document.getElementById(`note-${noteId}`)) as HTMLElement | null
+
+          if (!el) {
+            toast.error('Could not find the selected note in the list.')
+            return
+          }
+
+          // Try to account for the sticky header
+          const header = document.querySelector(
+            'header.sticky'
+          ) as HTMLElement | null
+          const headerHeight = header?.offsetHeight ?? 64
+
+          const y = el.getBoundingClientRect().top + window.scrollY
+          window.scrollTo({
+            top: Math.max(y - headerHeight - 12, 0),
+            behavior: 'smooth',
+          })
+
+          // Briefly highlight the target to help orientation
+          el.classList.add('ring-2', 'ring-primary/50', 'rounded-md')
+          window.setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-primary/50', 'rounded-md')
+          }, 1600)
         },
       }),
       [showFAB]
@@ -169,6 +199,7 @@ export const NotesContainer = forwardRef<
           setNotes(prevNotes => [newNote, ...prevNotes])
 
           // Toast is handled by the parent component (dashboard)
+          return newNote
         } catch (error) {
           console.error('Failed to create note:', error)
           toast.error('Failed to save note. Please try again.')
@@ -342,7 +373,10 @@ export const NotesContainer = forwardRef<
               {/* Note Input - always show */}
               <NoteInput
                 ref={noteInputRef}
-                onSubmit={handleCreateNote}
+                onSubmit={async (content: string) => {
+                  const note = await handleCreateNote(content)
+                  return note ? { id: note.id } : undefined
+                }}
                 isLoading={isCreating}
                 placeholder="What's on your mind?"
               />
@@ -425,7 +459,9 @@ export const NotesContainer = forwardRef<
           ref={noteModalRef}
           isOpen={isModalOpen}
           onOpenChange={setIsModalOpen}
-          onSubmit={handleCreateNote}
+          onSubmit={async (content: string) => {
+            await handleCreateNote(content)
+          }}
           isLoading={isCreating}
           placeholder="What's on your mind? Share your thoughts, ideas, or capture what you're learning..."
         />

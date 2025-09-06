@@ -59,7 +59,14 @@ export function SentryProvider({
     // Track initial page load
     addNavigationBreadcrumb('direct', window.location.pathname)
 
-    console.log('Sentry initialized successfully')
+    if (
+      process.env.NODE_ENV === 'development' ||
+      process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
+    ) {
+      // Keep this log out of production to avoid noise for end users
+      // eslint-disable-next-line no-console
+      console.log('Sentry initialized successfully')
+    }
   }, [user, initialRoute])
 
   /**
@@ -86,7 +93,13 @@ export function SentryProvider({
     }
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled promise rejection:', event.reason)
+      if (
+        process.env.NODE_ENV === 'development' ||
+        process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
+      ) {
+        // eslint-disable-next-line no-console
+        console.error('Unhandled promise rejection:', event.reason)
+      }
 
       // Add breadcrumb for unhandled rejection
       addInteractionBreadcrumb('unhandled_rejection', 'promise', {
@@ -96,7 +109,13 @@ export function SentryProvider({
     }
 
     const handleError = (event: ErrorEvent) => {
-      console.error('Global error:', event.error)
+      if (
+        process.env.NODE_ENV === 'development' ||
+        process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
+      ) {
+        // eslint-disable-next-line no-console
+        console.error('Global error:', event.error)
+      }
 
       // Add breadcrumb for global error
       addInteractionBreadcrumb('global_error', 'window', {
@@ -149,7 +168,13 @@ export function SentryProvider({
         )
       })
       .catch(error => {
-        console.warn('Failed to load web-vitals:', error)
+        if (
+          process.env.NODE_ENV === 'development' ||
+          process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
+        ) {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to load web-vitals:', error)
+        }
       })
   }, [])
 

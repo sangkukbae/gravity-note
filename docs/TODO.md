@@ -3,8 +3,8 @@
 **Timeline**: 3-month solo developer roadmap  
 **Target**: MVP launch with core features  
 **Stack**: Next.js 14 + Supabase + Vercel  
-**Last Updated**: September 3, 2025  
-**Current Status**: ✅ **Enhanced Authentication & Production Monitoring** - Complete error handling system with Sentry integration, advanced authentication UX, and production-ready monitoring infrastructure. Development is now approximately 85%+ ahead of schedule.
+**Last Updated**: September 6, 2025  
+**Current Status**: ✅ **Attachments MVP, Edit Modal, and Analytics Foundation** — Image attachments (picker/paste → draft upload → finalize), note edit modal with more menu, and Vercel Analytics wiring are implemented with E2E coverage. Monitoring and auth improvements remain in place.
 
 ---
 
@@ -23,6 +23,9 @@ This TODO list follows the 3-month implementation plan for Gravity Note, organiz
 - [x] Temporal grouping architecture (Complete component system)
 - [x] Error handling & monitoring (Sentry integration, global error boundaries, production monitoring)
 - [x] Enhanced authentication (Advanced validation, password strength, real-time error clearing)
+- [x] Attachments MVP (Image uploads, finalized on note create; UI previews; signed URLs)
+- [x] Note editing (Modal UI + more menu entry)
+- [x] Analytics foundation (Vercel Analytics + event hooks)
 - [ ] < 2 second app launch time
 - [ ] 99.9% note creation success rate
 - [ ] 500-2K users within 3 months post-launch
@@ -295,7 +298,7 @@ Goal: Ensure core note creation works offline with eventual consistency and zero
 
 **Remaining for Phase 2**:
 
-- [ ] Add edit-during-rescue modal for content modification
+- [ ] Add edit-during-rescue modal for content modification (base Edit Modal complete)
 - [ ] Set up rescue tracking and analytics
 - [ ] Advanced rescue features (bulk rescue, rescue history)
 
@@ -343,7 +346,7 @@ Goal: Deliver an installable, reliable PWA. Ensure fast repeat loads via precach
   - [x] Exclude auth/mutation routes from cache; rely on Week 2 background sync
 
 - [x] Step 5 — Navigation fallback
-  - [x] Use NetworkFirst for navigations with `fetch` handler
+- [x] Use NetworkFirst for navigations with `fetch` handler
   - [x] Serve `'/offline'` when both network and cache miss
   - [x] Enable Navigation Preload for faster responses when online
 
@@ -1280,3 +1283,62 @@ CREATE POLICY "Users can update own notes" ON notes FOR UPDATE USING (auth.uid()
 - **PWA Configuration**: Progressive web app capabilities and offline functionality
 - **Production Deployment**: Optimized build configuration and monitoring setup
 - **User Testing Phase**: Beta user recruitment and feedback collection systems
+
+---
+
+## 📎 Attachments MVP, Edit Modal, and Analytics — COMPLETED (September 6, 2025)
+
+### ✅ Attachments MVP
+
+- [x] Note input attachments (picker + paste)
+  - [x] Attach via hidden file input; paste image into textarea
+  - [x] Local thumbnails with revoke on cleanup
+  - [x] Limits: 4 images, 10MB each; types: png, jpeg, webp, gif
+- [x] Draft upload → finalize flow (Supabase Storage bucket `note-images`)
+  - [x] Upload draft to `userId/drafts/sessionId/localId.ext`
+  - [x] Insert `note_attachments` row (note_id = null initially)
+  - [x] After note create: move to `userId/noteId/attachmentId.ext` and update row
+  - [x] Robust finalize with retries and small initial delay
+- [x] Note display & edit integration
+  - [x] `NoteAttachments` shows thumbnails via signed URLs with transform and cache
+  - [x] Displays on `NoteItem` and inside `NoteEditModal`
+- [x] Orphan cleanup API
+  - [x] `POST /api/attachments/cleanup` removes orphaned drafts older than 48h
+  - [x] Deletes rows first, then storage objects; user-scoped
+- [x] E2E tests
+  - [x] `e2e/attachments.spec.ts` (UI-only attach/remove)
+  - [x] `e2e/attachments-finalize.spec.ts` (submit note → attachment visible)
+
+Supporting code
+
+- New: `lib/uploads/{storage,image}.ts`
+- Updated: `components/notes/note-input.tsx`, `components/notes/note-item.tsx`
+- New: `components/notes/note-attachments.tsx`
+
+DB prerequisites (documented; ensure migrations exist downstream)
+
+- Table: `note_attachments`
+  - Columns: `id (uuid pk)`, `user_id (uuid)`, `note_id (uuid nullable)`, `storage_path (text)`, `mime_type (text)`, `size_bytes (int)`, `width (int)`, `height (int)`, `kind (text)`, `created_at (timestamptz)`
+  - Indexes recommended: `(user_id, created_at)`, `(note_id)`, `(user_id, note_id)`
+  - RLS: user can only access own rows
+
+### ✅ Note Edit Modal + More Menu
+
+- [x] `NoteEditModal` (validation, keyboard shortcuts, auto-resize)
+- [x] `NoteMoreMenu` (opens edit; aligns with Radix dropdown)
+- [x] Attachments preview appears within edit modal
+
+### ✅ Analytics Foundation
+
+- [x] Vercel Analytics wired in `app/layout.tsx` (`<Analytics />`)
+- [x] `hooks/use-analytics.ts` with helpers:
+  - `trackNoteCreation`, `trackNoteRescue`, `trackSearch`, `trackPerformance`, `trackPageView`, `trackUserAction`, `trackError`
+- [x] Env: `NEXT_PUBLIC_VERCEL_ANALYTICS_ID`, flag `NEXT_PUBLIC_ENABLE_ANALYTICS`
+- [ ] Create analytics dashboard and reports (pending)
+
+Follow‑ups
+
+- [ ] Add drag‑and‑drop for attachments
+- [ ] Add server validation size/type mirror and virus scanning hook
+- [ ] Add deletion flow for finalized attachments
+- [ ] Add thumbnails generation pipeline (server‑side)

@@ -10,15 +10,24 @@ import {
 } from 'react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth'
+import { createClient } from '@/lib/supabase/client'
+import { measureImage } from '@/lib/uploads/image'
+import { uploadDraft, removeObject, moveToFinal } from '@/lib/uploads/storage'
 import { loadDraft, saveDraft, clearDraft } from '@/lib/offline/drafts'
-import { PlusIcon, LoaderIcon, AlertTriangleIcon } from 'lucide-react'
+import {
+  PlusIcon,
+  LoaderIcon,
+  AlertTriangleIcon,
+  Paperclip,
+  X,
+} from 'lucide-react'
 import {
   useNoteContentValidation,
   useContentStats,
 } from '@/hooks/use-validation'
 
 interface NoteInputProps {
-  onSubmit: (content: string) => Promise<void>
+  onSubmit: (content: string) => Promise<{ id: string } | void>
   placeholder?: string
   isLoading?: boolean
   className?: string
@@ -43,6 +52,14 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
     const [content, setContent] = useState('')
     const { user } = useAuthStore()
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+    const supabase = createClient()
+    const sessionIdRef = useRef<string>(
+      `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    )
+    // After a note is created, this holds the server note id so
+    // any in-flight uploads can be finalized as they complete.
+    const pendingNoteIdRef = useRef<string | null>(null)
 
     // Validation hooks
     const validation = useNoteContentValidation({
@@ -63,6 +80,18 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       []
     )
 
+    // Attachments state (MVP: client-side previews only)
+    type AttachmentDraft = {
+      id: string
+      file: File
+      previewUrl: string
+      error?: string | null
+      status?: 'pending' | 'uploaded' | 'error'
+      storagePath?: string
+      rowId?: string
+    }
+    const [attachments, setAttachments] = useState<AttachmentDraft[]>([])
+
     // Track if textarea is multi-line for button positioning
     const [isMultiLine, setIsMultiLine] = useState(false)
 
@@ -75,7 +104,8 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       textarea.style.height = 'auto'
       const scrollHeight = textarea.scrollHeight
       const maxHeight = 300 // ~12 lines
-      const minHeight = 48 // Single line height to match original input
+      // With previews rendered in normal flow, textarea min height stays constant
+      const minHeight = 28 // Compact single-line height
 
       // Set height based on content, with min/max constraints
       const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight))
@@ -132,8 +162,110 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       }
 
       try {
-        await onSubmit(validationResult.data?.content || trimmedContent)
+        const result = await onSubmit(
+          validationResult.data?.content || trimmedContent
+        )
+        const createdId = (result as any)?.id
+        // Only finalize attachments when we have a real server ID (skip optimistic temp IDs)
+        const canFinalize =
+          createdId &&
+          typeof createdId === 'string' &&
+          !createdId.startsWith('temp_')
+        if (canFinalize && user?.id && attachments.length > 0) {
+          // Store the created note id so that any uploads still finishing
+          // can be finalized as they complete.
+          pendingNoteIdRef.current = createdId
+
+          // Enhanced finalization with retry logic and initial delay
+          const finalizeAttachment = async (
+            attachment: any,
+            retryCount = 0
+          ) => {
+            const maxRetries = 5 // Increased from 3 to 5 for better reliability
+
+            // Add initial delay to ensure draft upload is fully complete
+            if (retryCount === 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000))
+            }
+
+            try {
+              const { newPath } = await moveToFinal({
+                userId: user.id,
+                noteId: createdId,
+                attachmentId: attachment.rowId,
+                draftPath: attachment.storagePath,
+              })
+
+              const { error } = await (supabase as any)
+                .from('note_attachments')
+                .update({ note_id: createdId, storage_path: newPath })
+                .eq('id', attachment.rowId)
+
+              if (error) throw error
+
+              console.log(
+                `Successfully finalized attachment ${attachment.rowId}`
+              )
+            } catch (error) {
+              console.warn(
+                `Failed to finalize attachment ${attachment.rowId} (attempt ${retryCount + 1}):`,
+                error
+              )
+
+              if (retryCount < maxRetries) {
+                // Exponential backoff: 500ms, 1s, 2s, 4s, 8s
+                const delay = 500 * Math.pow(2, retryCount)
+                setTimeout(() => {
+                  finalizeAttachment(attachment, retryCount + 1)
+                }, delay)
+              } else {
+                console.error(
+                  `Failed to finalize attachment ${attachment.rowId} after ${maxRetries + 1} attempts`
+                )
+              }
+            }
+          }
+
+          // Process all uploaded attachments
+          const uploadedAttachments = attachments.filter(
+            a => a.status === 'uploaded' && a.storagePath && a.rowId
+          )
+
+          if (uploadedAttachments.length > 0) {
+            // Start finalization for all uploaded attachments
+            uploadedAttachments.forEach(attachment => {
+              finalizeAttachment(attachment)
+            })
+
+            // Broadcast that attachments finalization is in progress
+            if (typeof window !== 'undefined') {
+              // Initial dispatch for immediate feedback
+              window.dispatchEvent(
+                new CustomEvent('gn:attachments-finalized', {
+                  detail: { noteId: createdId },
+                })
+              )
+
+              // Follow-up dispatch after a short delay to catch any quick finalizations
+              setTimeout(() => {
+                window.dispatchEvent(
+                  new CustomEvent('gn:attachments-finalized', {
+                    detail: { noteId: createdId },
+                  })
+                )
+              }, 1000)
+            }
+          }
+        }
         setContent('')
+        // Reset UI previews quickly, but keep attachments state briefly
+        // so any in-flight uploads can still finalize using pendingNoteIdRef.
+        setTimeout(() => {
+          setAttachments(prev => {
+            prev.forEach(a => URL.revokeObjectURL(a.previewUrl))
+            return []
+          })
+        }, 100)
         validation.reset() // Reset validation state
         // Clear draft after successful submission
         if (user?.id) clearDraft(user.id)
@@ -177,6 +309,216 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       setTimeout(() => adjustHeight(), 0)
     }
 
+    // Attachment helpers
+    const addFiles = useCallback(
+      (files: FileList | File[]) => {
+        const list = Array.from(files)
+        const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+        const maxCount = 4
+        const maxSize = 10 * 1024 * 1024 // 10MB
+
+        const current = attachments.length
+        const available = Math.max(0, maxCount - current)
+        const take = list.slice(0, available)
+
+        const drafts: AttachmentDraft[] = take
+          .filter(f => allowed.includes(f.type) && f.size <= maxSize)
+          .map(f => ({
+            id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            file: f,
+            previewUrl: URL.createObjectURL(f),
+            error: null,
+            status: 'pending',
+          }))
+
+        if (drafts.length > 0) {
+          setAttachments(prev => [...prev, ...drafts])
+          // Reflow to make room for preview row
+          setTimeout(() => adjustHeight(), 0)
+
+          // Start uploads in background
+          const doUploads = async () => {
+            if (!user?.id) return
+            for (const d of drafts) {
+              try {
+                const { path } = await uploadDraft({
+                  userId: user.id,
+                  sessionId: sessionIdRef.current,
+                  localId: d.id,
+                  file: d.file,
+                })
+                const dims = await measureImage(d.file)
+                const { data, error } = await (supabase as any)
+                  .from('note_attachments')
+                  .insert({
+                    user_id: user.id,
+                    storage_path: path,
+                    mime_type: d.file.type,
+                    size_bytes: d.file.size,
+                    width: dims.width,
+                    height: dims.height,
+                    kind: 'image',
+                  })
+                  .select('id')
+                  .single()
+                if (error) throw error
+                setAttachments(prev =>
+                  prev.map(a =>
+                    a.id === d.id
+                      ? {
+                          ...a,
+                          status: 'uploaded',
+                          storagePath: path,
+                          rowId: data!.id,
+                        }
+                      : a
+                  )
+                )
+                // If we already have a created note id, finalize immediately with retry logic
+                const finalizeNoteId = pendingNoteIdRef.current
+                if (
+                  finalizeNoteId &&
+                  typeof finalizeNoteId === 'string' &&
+                  !finalizeNoteId.startsWith('temp_')
+                ) {
+                  const finalizeInFlightAttachment = async (retryCount = 0) => {
+                    const maxRetries = 5 // Increased from 3 to 5 for better reliability
+
+                    // Add initial delay to ensure draft upload is fully complete
+                    if (retryCount === 0) {
+                      await new Promise(resolve => setTimeout(resolve, 1000))
+                    }
+
+                    try {
+                      const { newPath } = await moveToFinal({
+                        userId: user.id,
+                        noteId: finalizeNoteId,
+                        attachmentId: data!.id,
+                        draftPath: path,
+                      })
+
+                      const { error } = await (supabase as any)
+                        .from('note_attachments')
+                        .update({
+                          note_id: finalizeNoteId,
+                          storage_path: newPath,
+                        })
+                        .eq('id', data!.id)
+
+                      if (error) throw error
+
+                      console.log(
+                        `Successfully finalized in-flight attachment ${data!.id}`
+                      )
+
+                      // Notify listeners that attachments for this note were finalized
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('gn:attachments-finalized', {
+                            detail: { noteId: finalizeNoteId },
+                          })
+                        )
+                      }
+                    } catch (error) {
+                      console.warn(
+                        `Failed to finalize in-flight attachment ${data!.id} (attempt ${retryCount + 1}):`,
+                        error
+                      )
+
+                      if (retryCount < maxRetries) {
+                        const delay = 500 * Math.pow(2, retryCount)
+                        setTimeout(() => {
+                          finalizeInFlightAttachment(retryCount + 1)
+                        }, delay)
+                      } else {
+                        console.error(
+                          `Failed to finalize in-flight attachment ${data!.id} after ${maxRetries + 1} attempts`
+                        )
+                      }
+                    }
+                  }
+
+                  finalizeInFlightAttachment()
+                }
+              } catch (e: any) {
+                setAttachments(prev =>
+                  prev.map(a =>
+                    a.id === d.id
+                      ? {
+                          ...a,
+                          status: 'error',
+                          error: e?.message || 'Upload failed',
+                        }
+                      : a
+                  )
+                )
+              }
+            }
+          }
+          doUploads()
+        }
+      },
+      [attachments.length, adjustHeight]
+    )
+
+    const handlePickFiles = useCallback(() => {
+      fileInputRef.current?.click()
+    }, [])
+
+    const handleFilesSelected = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files) return
+        addFiles(e.target.files)
+        // reset so selecting the same file again still fires change
+        e.target.value = ''
+      },
+      [addFiles]
+    )
+
+    const handlePaste = useCallback(
+      (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const items = e.clipboardData?.items
+        if (!items || items.length === 0) return
+        const images: File[] = []
+        for (let i = 0; i < items.length; i++) {
+          const it = (items as any).item
+            ? (items as any).item(i)
+            : (items as any)[i]
+          if (it && it.kind === 'file' && it.type.startsWith('image/')) {
+            const f = it.getAsFile()
+            if (f) images.push(f)
+          }
+        }
+        if (images.length > 0) {
+          e.preventDefault()
+          addFiles(images)
+        }
+      },
+      [addFiles]
+    )
+
+    const removeAttachment = useCallback(
+      (id: string) => {
+        setAttachments(prev => {
+          const found = prev.find(a => a.id === id)
+          if (found) {
+            URL.revokeObjectURL(found.previewUrl)
+            if (found.storagePath && found.rowId) {
+              removeObject(found.storagePath).catch(() => {})
+              ;(supabase as any)
+                .from('note_attachments')
+                .delete()
+                .eq('id', found.rowId)
+                .catch(() => {})
+            }
+          }
+          return prev.filter(a => a.id !== id)
+        })
+        setTimeout(() => adjustHeight(), 0)
+      },
+      [adjustHeight, supabase]
+    )
+
     // Calculate validation state for UI
     const hasValidationError = validation.state.error !== null
     const isValidationLoading = validation.state.isValidating
@@ -194,38 +536,100 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
         <div className='w-full max-w-[600px] mx-auto'>
           <form onSubmit={handleSubmit} className='relative'>
             {/* Integrated Input Container */}
-            <div className='relative'>
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder={placeholder}
-                disabled={isLoading}
-                className={cn(
-                  'w-full text-base resize-none transition-all duration-150 ease-out',
-                  // Initial height matching original input, will auto-expand
-                  'min-h-[48px] pl-4 pr-16 py-3', // Extra right padding for button
-                  // Focus ring styling for accessibility
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                  // Border and background styling to match shadcn/ui textarea
-                  'rounded-md border bg-background',
-                  // Validation-based border colors
-                  hasValidationError
-                    ? 'border-destructive focus-visible:ring-destructive'
-                    : 'border-input',
-                  'placeholder:text-muted-foreground',
-                  // Hide scrollbar initially
-                  'overflow-y-hidden',
-                  // Disabled state
-                  'disabled:cursor-not-allowed disabled:opacity-50',
-                  isLoading && 'opacity-50'
-                )}
-                aria-label='Note content input'
-                autoComplete='off'
-                spellCheck={true}
-                rows={1} // Start with single row
+            <div
+              className={cn(
+                'relative rounded-md border bg-background',
+                // Remove blue outer focus ring; keep subtle focus via border color if desired
+                // 'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+                hasValidationError ? 'border-destructive' : 'border-input'
+              )}
+            >
+              {/* Attachment hidden input */}
+              <input
+                ref={fileInputRef}
+                type='file'
+                accept='image/*'
+                multiple
+                className='hidden'
+                data-testid='file-input'
+                onChange={handleFilesSelected}
               />
+
+              {/* Content area padding: leaves room for left/right buttons */}
+              <div className='pl-12 pr-16 py-2'>
+                {/* Preview grid (inside container, above textarea) */}
+                {attachments.length > 0 && (
+                  <div className='mb-2 flex gap-2 flex-wrap max-w-full'>
+                    {attachments.map(a => (
+                      <div
+                        key={a.id}
+                        className='relative w-24 h-24 rounded-md overflow-hidden border border-border/60 bg-muted/30'
+                        data-testid={`thumb-${a.id}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={a.previewUrl}
+                          alt='attachment preview'
+                          className='w-full h-full object-cover'
+                        />
+                        <button
+                          type='button'
+                          aria-label='Remove attachment'
+                          className='absolute top-1 right-1 bg-background/90 border border-border rounded-full p-1 shadow'
+                          onClick={() => removeAttachment(a.id)}
+                          data-testid={`remove-${a.id}`}
+                        >
+                          <X className='h-3 w-3' />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <textarea
+                  ref={textareaRef}
+                  value={content}
+                  onChange={handleChange}
+                  onPaste={handlePaste}
+                  onKeyDown={handleKeyDown}
+                  placeholder={placeholder}
+                  disabled={isLoading}
+                  className={cn(
+                    'w-full text-base resize-none transition-all duration-150 ease-out bg-transparent',
+                    // Initial height matching original input, will auto-expand
+                    'min-h-[28px] p-0 leading-7',
+                    'placeholder:text-muted-foreground',
+                    // Hide scrollbar initially
+                    'overflow-y-hidden',
+                    // Remove default borders/background and all focus outlines
+                    'border-0 outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0',
+                    // Disabled state
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                    isLoading && 'opacity-50'
+                  )}
+                  aria-label='Note content input'
+                  autoComplete='off'
+                  spellCheck={true}
+                  rows={1} // Start with single row
+                />
+              </div>
+
+              {/* Attach button (left) */}
+              <button
+                type='button'
+                onClick={handlePickFiles}
+                className={cn(
+                  'absolute left-3 bottom-3',
+                  'w-8 h-8 inline-flex items-center justify-center rounded-md',
+                  'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                  'transition-colors'
+                )}
+                aria-label='Attach image'
+                title='Attach image'
+                data-testid='attach-button'
+              >
+                <Paperclip className='h-4 w-4' />
+              </button>
 
               {/* Integrated Submit Button */}
               <button
@@ -237,13 +641,11 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                   'bg-primary text-primary-foreground',
                   'hover:bg-primary/90 active:bg-primary/95',
                   'transition-all duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                  'focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0',
                   // Disabled state
                   'disabled:opacity-50 disabled:pointer-events-none',
-                  // Position based on single/multi-line state with equal spacing
-                  isMultiLine
-                    ? 'bottom-3 right-3' // Equal 12px spacing from both bottom and right edges
-                    : 'top-2 right-3' // Single line positioning
+                  // Always bottom-right inside the container
+                  'bottom-3 right-3'
                 )}
                 aria-label='Add note'
               >

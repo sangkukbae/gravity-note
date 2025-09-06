@@ -1,15 +1,15 @@
-import '../instrumentation-client'
-import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
+import { SentryProvider } from '@/components/providers/sentry-provider'
+import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
+import { ErrorContextProvider } from '@/contexts/error-context'
 import { AuthProvider } from '@/lib/providers/auth-provider'
 import { QueryProvider } from '@/lib/providers/query-provider'
+import { Analytics } from '@vercel/analytics/react'
+import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from 'next-themes'
+import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
-import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
-import { GlobalErrorBoundary } from '@/components/error-boundary/global-error-boundary'
-import { ErrorContextProvider } from '@/contexts/error-context'
-import { SentryProvider } from '@/components/providers/sentry-provider'
+import '../instrumentation-client'
+import './globals.css'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -158,12 +158,7 @@ export default function RootLayout({
                     operation: 'general',
                   }}
                 >
-                  <GlobalErrorBoundary
-                    enableSentryLogging={true}
-                    maxRetries={3}
-                  >
-                    <div id='root'>{children}</div>
-                  </GlobalErrorBoundary>
+                  <div id='root'>{children}</div>
                   {/* Register Service Worker for offline support (guarded by feature flag) */}
                   <ServiceWorkerRegister />
                   <Toaster
@@ -192,6 +187,7 @@ export default function RootLayout({
             </QueryProvider>
           </ThemeProvider>
         </SentryProvider>
+        <Analytics />
       </body>
     </html>
   )

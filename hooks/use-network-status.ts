@@ -330,7 +330,14 @@ export function useNetworkStatus(options: NetworkStatusOptions = {}) {
         }
         return false
       } catch (error) {
-        console.warn('Failed to register background sync:', error)
+        if (
+          process.env.NODE_ENV === 'development' ||
+          process.env.NEXT_PUBLIC_DEBUG_LOGS === 'true' ||
+          process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
+        ) {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to register background sync:', error)
+        }
         return false
       }
     },

@@ -75,8 +75,8 @@ export async function register() {
       // Privacy settings - be extra careful on server
       sendDefaultPii: false,
 
-      // Debug mode for development
-      debug: ENVIRONMENT === 'development',
+      // Silence SDK logs unless explicitly enabled via env
+      debug: process.env.SENTRY_DEBUG === 'true',
 
       // Server-specific configuration
       maxBreadcrumbs: 50,
@@ -161,8 +161,8 @@ export async function register() {
       // Privacy settings
       sendDefaultPii: false,
 
-      // Minimal debug for edge
-      debug: false,
+      // Minimal debug for edge (explicit opt-in only)
+      debug: process.env.SENTRY_DEBUG === 'true',
 
       // Edge-specific tags
       initialScope: {

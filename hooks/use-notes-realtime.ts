@@ -7,6 +7,12 @@ import { safeDate } from '@/lib/utils/note-transformers'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+// Only emit client console logs in development or when explicitly enabled
+const __DEV_LOGS__ =
+  process.env.NODE_ENV === 'development' ||
+  process.env.NEXT_PUBLIC_DEBUG_LOGS === 'true' ||
+  process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
+
 export interface UseNotesRealtimeOptions {
   enabled?: boolean
   onRealtimeError?: (error: Error) => void
@@ -231,7 +237,10 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         }
 
         if (isConnected) {
-          console.log('Real-time connection established successfully')
+          if (__DEV_LOGS__) {
+            // eslint-disable-next-line no-console
+            console.log('Real-time connection established successfully')
+          }
           setRealtimeState(prev => ({
             ...prev,
             isRealtimeConnected: true,
@@ -239,7 +248,10 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
             realtimeError: null,
           }))
         } else {
-          console.warn('Failed to establish real-time connection')
+          if (__DEV_LOGS__) {
+            // eslint-disable-next-line no-console
+            console.warn('Failed to establish real-time connection')
+          }
           setRealtimeState(prev => ({
             ...prev,
             isRealtimeConnected: false,
@@ -248,7 +260,10 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         }
       } catch (error) {
         if (!isCleanedUp) {
-          console.error('Error setting up real-time connection:', error)
+          if (__DEV_LOGS__) {
+            // eslint-disable-next-line no-console
+            console.error('Error setting up real-time connection:', error)
+          }
           stableHandlers.handleError(error as Error)
         }
       }
@@ -258,10 +273,13 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
 
     // Cleanup on unmount or dependency change
     return () => {
-      console.log(
-        'Cleaning up real-time connection for user:',
-        user?.id || 'unknown'
-      )
+      if (__DEV_LOGS__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Cleaning up real-time connection for user:',
+          user?.id || 'unknown'
+        )
+      }
       isCleanedUp = true
       if (realtimeManagerRef.current) {
         realtimeManagerRef.current.unsubscribe()
@@ -291,14 +309,20 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
       return false
     }
 
-    console.log('Attempting to reconnect real-time for user:', user.id)
+    if (__DEV_LOGS__) {
+      // eslint-disable-next-line no-console
+      console.log('Attempting to reconnect real-time for user:', user.id)
+    }
     setRealtimeState(prev => ({ ...prev, connectionStatus: 'connecting' }))
 
     try {
       const isConnected = await realtimeManagerRef.current.reconnect()
 
       if (isConnected) {
-        console.log('Real-time reconnection successful')
+        if (__DEV_LOGS__) {
+          // eslint-disable-next-line no-console
+          console.log('Real-time reconnection successful')
+        }
         setRealtimeState(prev => ({
           ...prev,
           isRealtimeConnected: true,
@@ -311,7 +335,10 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
 
         return true
       } else {
-        console.warn('Real-time reconnection failed')
+        if (__DEV_LOGS__) {
+          // eslint-disable-next-line no-console
+          console.warn('Real-time reconnection failed')
+        }
         setRealtimeState(prev => ({
           ...prev,
           isRealtimeConnected: false,
@@ -320,7 +347,10 @@ export function useNotesRealtime(options: UseNotesRealtimeOptions = {}) {
         return false
       }
     } catch (error) {
-      console.error('Error during real-time reconnection:', error)
+      if (__DEV_LOGS__) {
+        // eslint-disable-next-line no-console
+        console.error('Error during real-time reconnection:', error)
+      }
       stableHandlers.handleError(error as Error)
       return false
     }

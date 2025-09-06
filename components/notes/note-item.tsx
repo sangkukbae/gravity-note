@@ -2,12 +2,22 @@
 
 import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react'
 import { cn } from '@/lib/utils'
-import { ClockIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
+import {
+  ClockIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  MoreVertical,
+  PencilIcon,
+} from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { SmartTextRenderer } from './smart-text-renderer'
 import { NoteActionGroup } from './note-action-group'
 import { PendingNoteBadge } from '@/components/ui/pending-note-badge'
 import { useNotePendingStatus } from '@/hooks/use-note-pending-status'
+import { NoteAttachments } from './note-attachments'
+import { NoteEditModal } from './note-edit-modal'
+import { useNotesMutations } from '@/hooks/use-notes-mutations'
+import { NoteMoreMenu } from './note-more-menu'
 
 export interface Note {
   id: string
@@ -41,12 +51,17 @@ export const NoteItem = memo(function NoteItem({
 }: NoteItemProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const previousHeightRef = useRef<number>(0)
+  const onHeightChangeRef = useRef<NoteItemProps['onHeightChange']>()
 
   // Check if note is pending sync
   const { isNotePending } = useNotePendingStatus()
   const isPending = isNotePending(note.id)
+
+  const { updateNoteAsync } = useNotesMutations()
 
   // Character limit for truncation (approximately 300 characters)
   const CHAR_LIMIT = 300
@@ -81,21 +96,26 @@ export const NoteItem = memo(function NoteItem({
   const shouldShowExpandButton =
     typeof note.content === 'string' && note.content.length > CHAR_LIMIT
 
-  // Notify parent of height changes for virtual scrolling
+  // Always keep latest callback without causing effect churn
   useEffect(() => {
-    if (contentRef.current && onHeightChange) {
-      const height = contentRef.current.offsetHeight
-      if (height !== previousHeightRef.current) {
-        previousHeightRef.current = height
-        onHeightChange(note.id, height)
-      }
+    onHeightChangeRef.current = onHeightChange
+  }, [onHeightChange])
+
+  // Notify parent of height changes for virtual scrolling
+  // Depend only on state/values that actually change layout to avoid loops
+  useEffect(() => {
+    if (!contentRef.current) return
+    const height = contentRef.current.offsetHeight
+    if (height !== previousHeightRef.current) {
+      previousHeightRef.current = height
+      onHeightChangeRef.current?.(note.id, height)
     }
-  }, [isExpanded, note.id, onHeightChange])
+  }, [isExpanded, note.id])
 
   // Memoize handlers to prevent unnecessary re-renders of child components
   const handleToggleExpand = useCallback(() => {
-    setIsExpanded(!isExpanded)
-  }, [isExpanded])
+    setIsExpanded(prev => !prev)
+  }, [])
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -105,6 +125,19 @@ export const NoteItem = memo(function NoteItem({
       }
     },
     [handleToggleExpand]
+  )
+
+  const handleEditSubmit = useCallback(
+    async (content: string) => {
+      try {
+        setIsUpdating(true)
+        await updateNoteAsync({ id: note.id, updates: { content } })
+        setIsEditOpen(false)
+      } finally {
+        setIsUpdating(false)
+      }
+    },
+    [note.id, updateNoteAsync]
   )
 
   // Memoize expensive calculations
@@ -172,8 +205,18 @@ export const NoteItem = memo(function NoteItem({
           <PendingNoteBadge isPending={isPending} />
         </div>
 
+        {/* Top-right More menu */}
+        <div className='absolute right-2 top-2'>
+          <NoteMoreMenu
+            canEdit={typeof note.content === 'string'}
+            onEdit={() => setIsEditOpen(true)}
+          />
+        </div>
+
         {/* Content Zone - Note content and inline expand controls */}
         <div className='flex-1 min-w-0'>
+          {/* Attachments preview above content */}
+          <NoteAttachments noteId={note.id} />
           <div
             className={cn(
               // Base container for enhanced readability
@@ -274,6 +317,18 @@ export const NoteItem = memo(function NoteItem({
           <div className='h-3' />
         </div>
       )}
+
+      {/* Edit Modal */}
+      <NoteEditModal
+        isOpen={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        initialContent={
+          typeof note.content === 'string' ? (note.content as string) : ''
+        }
+        onSubmit={handleEditSubmit}
+        isLoading={isUpdating}
+        noteId={note.id}
+      />
     </div>
   )
 })
