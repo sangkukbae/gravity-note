@@ -48,6 +48,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     // Final fallback for development
     return 'http://localhost:3000'
   })()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')

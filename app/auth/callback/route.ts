@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
 
     if (!error) {
       const { host, protocol } = resolveCallbackUrl(request, url)
+
       return NextResponse.redirect(`${protocol}://${host}${next}`)
     }
   }
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
     request,
     url
   )
+
   return NextResponse.redirect(
     `${fallbackProto}://${fallbackHost}/auth/auth-code-error`
   )
