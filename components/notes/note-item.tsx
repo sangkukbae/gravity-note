@@ -38,6 +38,10 @@ interface NoteItemProps {
   showRescueButton?: boolean
   onHeightChange?: (noteId: string, height: number) => void
   showDivider?: boolean
+  // Controls whether to show the transient "rescued" badge/highlight.
+  // We only want to surface this for the very top note in the feed,
+  // not forever on every rescued note.
+  showRescuedBadge?: boolean
 }
 
 export const NoteItem = memo(function NoteItem({
@@ -48,6 +52,7 @@ export const NoteItem = memo(function NoteItem({
   showRescueButton = true,
   onHeightChange,
   showDivider = false,
+  showRescuedBadge = false,
 }: NoteItemProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -141,22 +146,27 @@ export const NoteItem = memo(function NoteItem({
   )
 
   // Memoize expensive calculations
+  // Show relative time based on last activity: prefer updated_at (e.g., rescue)
+  // and fall back to created_at.
+  const activeTimestamp = useMemo(
+    () => note.updated_at || note.created_at || new Date().toISOString(),
+    [note.updated_at, note.created_at]
+  )
+
   const formattedTimeAgo = useMemo(() => {
     try {
-      const createdAt = note.created_at || new Date().toISOString()
-      return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
+      return formatDistanceToNow(new Date(activeTimestamp), { addSuffix: true })
     } catch (error) {
       return 'some time ago'
     }
-  }, [note.created_at])
+  }, [activeTimestamp])
 
-  const isRecentlyRescued = useMemo(
-    () =>
-      note.is_rescued &&
-      note.updated_at &&
-      note.created_at &&
-      new Date(note.updated_at).getTime() > new Date(note.created_at).getTime(),
-    [note.is_rescued, note.updated_at, note.created_at]
+  // Show rescued accent only when explicitly asked (typically top-most note).
+  // We don't rely solely on note.is_rescued because realtime updates or
+  // legacy rows may carry null. The caller decides which note to highlight.
+  const showRescuedAccent = useMemo(
+    () => Boolean(showRescuedBadge),
+    [showRescuedBadge]
   )
 
   return (
@@ -172,7 +182,7 @@ export const NoteItem = memo(function NoteItem({
           // Modern hover interaction - subtle background change
           'transition-colors duration-150 ease-out',
           // Clean rescued note accent - minimal but clear
-          isRecentlyRescued &&
+          showRescuedAccent &&
             'bg-primary/3 border-l-2 border-l-primary/50 pl-6',
           // Modern focus styles
           'focus-within:bg-muted/40 focus-within:outline-none',
@@ -187,15 +197,13 @@ export const NoteItem = memo(function NoteItem({
         <div className='flex items-center gap-2 text-xs text-muted-foreground/70'>
           <ClockIcon className='h-3 w-3' />
           <time
-            dateTime={note.created_at || new Date().toISOString()}
-            title={new Date(
-              note.created_at || new Date().toISOString()
-            ).toLocaleString()}
+            dateTime={activeTimestamp}
+            title={new Date(activeTimestamp).toLocaleString()}
             className='hover:text-muted-foreground transition-colors duration-150'
           >
             {formattedTimeAgo}
           </time>
-          {isRecentlyRescued && (
+          {showRescuedAccent && (
             <>
               <span className='text-muted-foreground/50'>•</span>
               <span className='text-primary/70 font-medium'>rescued</span>

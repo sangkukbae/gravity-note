@@ -29,10 +29,26 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   // Resolve a reliable base URL at runtime to avoid env drift between
   // environments (prevents accidental redirects to localhost in prod).
-  const runtimeBaseUrl =
-    typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : process.env.NEXT_PUBLIC_BASE_URL
+  const runtimeBaseUrl = (() => {
+    // In browser, always use window.location.origin (most reliable)
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return window.location.origin
+    }
+
+    // Fallback for SSR or when window is not available
+    if (process.env.NEXT_PUBLIC_BASE_URL) {
+      return process.env.NEXT_PUBLIC_BASE_URL
+    }
+
+    // Production fallback - detect Vercel deployment
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`
+    }
+
+    // Final fallback for development
+    return 'http://localhost:3000'
+  })()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')

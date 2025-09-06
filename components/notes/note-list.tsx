@@ -19,6 +19,8 @@ interface NoteListProps {
   isLoading?: boolean
   isRescuing?: boolean
   rescuingId?: string
+  // When provided, this note will show the transient rescued badge.
+  highlightNoteId?: string
   searchQuery?: string
   onSearchChange?: (query: string) => void
   className?: string
@@ -33,6 +35,7 @@ export const NoteList = memo(function NoteList({
   isLoading = false,
   isRescuing = false,
   rescuingId,
+  highlightNoteId,
   searchQuery,
   onSearchChange,
   className,
@@ -240,6 +243,9 @@ export const NoteList = memo(function NoteList({
                 isRescuing={isCurrentlyRescuing}
                 showRescueButton={index > 0} // Don't show rescue for the top note
                 showDivider={index < filteredNotes.length - 1} // Pass divider flag to note item
+                showRescuedBadge={Boolean(
+                  highlightNoteId && note.id === highlightNoteId
+                )}
                 {...(onRescue ? { onRescue } : {})}
               />
             </div>
