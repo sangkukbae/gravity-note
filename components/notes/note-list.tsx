@@ -167,6 +167,8 @@ export const NoteList = memo(function NoteList({
           return (
             <div
               key={note.id}
+              id={`note-${note.id}`}
+              data-note-id={note.id}
               ref={
                 isLastItem && hasMore && !searchQuery
                   ? lastElementRef
