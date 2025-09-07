@@ -223,8 +223,6 @@ export const NoteItem = memo(function NoteItem({
 
         {/* Content Zone - Note content and inline expand controls */}
         <div className='flex-1 min-w-0'>
-          {/* Attachments preview above content */}
-          <NoteAttachments noteId={note.id} />
           <div
             className={cn(
               // Base container for enhanced readability
@@ -300,6 +298,9 @@ export const NoteItem = memo(function NoteItem({
               </div>
             )}
           </div>
+
+          {/* Attachments displayed below content for better readability */}
+          <NoteAttachments noteId={note.id} variant='card' />
         </div>
 
         {/* Action Zone - Enhanced button group with rescue, copy, and share */}
