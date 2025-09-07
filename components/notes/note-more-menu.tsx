@@ -39,7 +39,11 @@ export const NoteMoreMenu = memo(function NoteMoreMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-40'>
-        <DropdownMenuItem disabled={!canEdit} onClick={handleEdit}>
+        <DropdownMenuItem
+          className='cursor-pointer'
+          disabled={!canEdit}
+          onClick={handleEdit}
+        >
           <PencilIcon className='h-4 w-4 mr-2' /> Edit
         </DropdownMenuItem>
       </DropdownMenuContent>

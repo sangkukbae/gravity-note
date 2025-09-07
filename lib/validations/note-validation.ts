@@ -79,7 +79,12 @@ function containsSuspiciousContent(content: string): boolean {
  */
 function sanitizeContent(content: string): string {
   // Remove null bytes and other control characters except newlines/tabs
-  return content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+  let out = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+  // Strip invisible formatting characters that break substring/FTS search
+  // - ZWSP (\u200B), ZWNJ (\u200C), ZWJ (\u200D), BOM (\uFEFF)
+  // Note: keep this list minimal to avoid removing meaningful characters.
+  out = out.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+  return out
 }
 
 /**

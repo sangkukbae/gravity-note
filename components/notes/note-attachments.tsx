@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog'
+import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface NoteAttachmentsProps {
   noteId: string
@@ -13,6 +14,11 @@ interface NoteAttachmentsProps {
   // - 'thumb': small square thumbnails (input/editor preview)
   // - 'card': full-width, readable images inside a note card
   variant?: 'thumb' | 'card'
+  /**
+   * Debug/testing hook: when provided, bypasses Supabase fetching and uses
+   * these items directly. Only intended for dev/test pages.
+   */
+  debugItems?: AttachmentItem[]
 }
 
 interface AttachmentItem {
@@ -30,10 +36,11 @@ export function NoteAttachments({
   className,
   max = 4,
   variant = 'thumb',
+  debugItems,
 }: NoteAttachmentsProps) {
   // Create a stable Supabase client instance to avoid re-running effects
   const supabaseRef = useRef(createClient())
-  const [items, setItems] = useState<AttachmentItem[]>([])
+  const [items, setItems] = useState<AttachmentItem[]>(debugItems || [])
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const retriesRef = useRef(0)
@@ -113,8 +120,66 @@ export function NoteAttachments({
   const [viewerOpen, setViewerOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const [activeUrl, setActiveUrl] = useState<string | undefined>()
+  const [transitioning, setTransitioning] = useState(false)
+  const [animProgress, setAnimProgress] = useState(false)
+  const [direction, setDirection] = useState<'next' | 'prev'>('next')
+  const [targetIndex, setTargetIndex] = useState<number | null>(null)
+  const [pair, setPair] = useState<{
+    current?: string | undefined
+    other?: string | undefined
+  }>({})
+  const touchStartXRef = useRef<number | null>(null)
+  const touchEndXRef = useRef<number | null>(null)
+
+  const resolveFallbackUrl = useCallback(
+    (idx: number) => {
+      const it = items[idx]
+      if (!it) return undefined
+      const largest = Object.entries(it.urlsByWidth || {}).sort(
+        (a, b) => Number(b[0]) - Number(a[0])
+      )[0]?.[1]
+      return largest || it.url
+    },
+    [items]
+  )
+
+  const goPrev = useCallback(() => {
+    if (transitioning) return
+    if (items.length <= 1) return
+    const prevIdx = (activeIndex - 1 + items.length) % items.length
+    setDirection('prev')
+    setPair({
+      current: activeUrl || resolveFallbackUrl(activeIndex),
+      other: resolveFallbackUrl(prevIdx),
+    })
+    setTargetIndex(prevIdx)
+    setTransitioning(true)
+    setAnimProgress(false)
+    requestAnimationFrame(() => setAnimProgress(true))
+  }, [items.length, activeIndex, activeUrl, resolveFallbackUrl])
+
+  const goNext = useCallback(() => {
+    if (transitioning) return
+    if (items.length <= 1) return
+    const nextIdx = (activeIndex + 1) % items.length
+    setDirection('next')
+    setPair({
+      current: activeUrl || resolveFallbackUrl(activeIndex),
+      other: resolveFallbackUrl(nextIdx),
+    })
+    setTargetIndex(nextIdx)
+    setTransitioning(true)
+    setAnimProgress(false)
+    requestAnimationFrame(() => setAnimProgress(true))
+  }, [items.length, activeIndex, activeUrl, resolveFallbackUrl])
 
   const load = useCallback(async () => {
+    if (debugItems && debugItems.length > 0) {
+      setItems(debugItems.slice(0, max))
+      setHasError(false)
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
     setHasError(false)
 
@@ -202,7 +267,7 @@ export function NoteAttachments({
     } finally {
       setIsLoading(false)
     }
-  }, [noteId, max, createSignedUrlWithCache])
+  }, [noteId, max, createSignedUrlWithCache, debugItems])
 
   // Initial load and realtime subscription for new/updated attachments
   useEffect(() => {
@@ -228,28 +293,31 @@ export function NoteAttachments({
 
     scheduleRetry(0)
 
-    const channel = supabaseRef.current
-      .channel(`note_attachments_${noteId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'note_attachments',
-          filter: `note_id=eq.${noteId}`,
-        },
-        () => {
-          // Re-load on any insert/update/delete for this note
-          if (active) load()
-        }
-      )
-      .subscribe()
+    let channel: any = null
+    if (!debugItems) {
+      channel = supabaseRef.current
+        .channel(`note_attachments_${noteId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'note_attachments',
+            filter: `note_id=eq.${noteId}`,
+          },
+          () => {
+            // Re-load on any insert/update/delete for this note
+            if (active) load()
+          }
+        )
+        .subscribe()
+    }
 
     return () => {
       active = false
-      supabaseRef.current.removeChannel(channel)
+      if (channel) supabaseRef.current.removeChannel(channel)
     }
-  }, [noteId, load])
+  }, [noteId, load, debugItems])
 
   // Listen for explicit finalize events dispatched by the input
   useEffect(() => {
@@ -290,6 +358,12 @@ export function NoteAttachments({
     const loadHi = async () => {
       const item = items[activeIndex]
       if (!item) return
+      // Set an immediate fallback to avoid flash while high-res loads
+      const fallbackImmediate =
+        Object.entries(item.urlsByWidth || {}).sort(
+          (a, b) => Number(b[0]) - Number(a[0])
+        )[0]?.[1] || item.url
+      if (fallbackImmediate) setActiveUrl(fallbackImmediate)
       const hi = await getSignedUrlForWidth(item.path, 2048, 'contain')
       if (!cancelled)
         setActiveUrl(
@@ -297,12 +371,42 @@ export function NoteAttachments({
             Object.values(item.urlsByWidth || {}).pop() ||
             item.url
         )
+
+      // Preload neighbors for smoother carousel
+      const maybePreload = async (idx: number) => {
+        const it = items[idx]
+        if (!it) return
+        await getSignedUrlForWidth(it.path, 2048, 'contain')
+      }
+      if (items.length > 1) {
+        maybePreload((activeIndex + 1) % items.length)
+        maybePreload((activeIndex - 1 + items.length) % items.length)
+      }
     }
     loadHi()
     return () => {
       cancelled = true
     }
   }, [variant, viewerOpen, activeIndex, items, getSignedUrlForWidth])
+
+  // Keyboard navigation within fullscreen viewer
+  useEffect(() => {
+    if (!viewerOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' && items.length > 1) {
+        e.preventDefault()
+        goNext()
+      } else if (e.key === 'ArrowLeft' && items.length > 1) {
+        e.preventDefault()
+        goPrev()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setViewerOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewerOpen, goNext, goPrev, items.length])
 
   // Do not render a skeleton while loading; only render when we know we have items.
   // This avoids showing placeholder boxes on notes without attachments.
@@ -328,7 +432,8 @@ export function NoteAttachments({
   if (variant === 'card') {
     // Simple grid rules: 1 → single, 2 → two columns, 3+ → responsive grid
     const isSingle = items.length === 1
-    const sizes = '(max-width: 640px) 100vw, (max-width: 1024px) 720px, 960px'
+    // Match the main note content cap (~720px)
+    const sizes = '(max-width: 640px) 100vw, 720px'
 
     return (
       <div className={cn('mt-3 mb-2 flex flex-col gap-2', className)}>
@@ -412,16 +517,142 @@ export function NoteAttachments({
         {/* Fullscreen viewer */}
         <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
           <DialogContent className='w-screen h-screen max-w-none p-0 bg-black/90 border-none flex items-center justify-center'>
-            {activeUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={activeUrl}
-                alt='attachment'
-                className='max-w-[98vw] max-h-[98vh] object-contain'
-              />
-            ) : (
-              <div className='text-muted-foreground'>Loading…</div>
-            )}
+            {/* Close button (top-left) for better usability */}
+            <DialogClose asChild>
+              <button
+                type='button'
+                aria-label='Close viewer'
+                className='absolute left-4 top-4 z-[60] rounded-md bg-black/60 text-white hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 p-2'
+              >
+                <X className='h-5 w-5' />
+              </button>
+            </DialogClose>
+            <div
+              className='relative w-full h-full flex items-center justify-center select-none overflow-hidden'
+              onTouchStart={e => {
+                touchStartXRef.current = e.touches[0]?.clientX ?? null
+              }}
+              onTouchEnd={e => {
+                if (items.length <= 1) {
+                  touchStartXRef.current = null
+                  touchEndXRef.current = null
+                  return
+                }
+                touchEndXRef.current = e.changedTouches[0]?.clientX ?? null
+                const s = touchStartXRef.current
+                const end = touchEndXRef.current
+                if (s === null || end === null) return
+                const dx = end - s
+                if (Math.abs(dx) > 40) {
+                  if (dx < 0) goNext()
+                  else goPrev()
+                }
+                touchStartXRef.current = null
+                touchEndXRef.current = null
+              }}
+            >
+              {/* Idle: single image */}
+              {!transitioning &&
+                (activeUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={activeUrl}
+                    alt='attachment'
+                    className='max-w-[98vw] max-h-[98vh] object-contain'
+                  />
+                ) : (
+                  <div className='text-muted-foreground'>Loading…</div>
+                ))}
+
+              {/* Animating: two-slide track */}
+              {transitioning && (
+                <div
+                  className={cn(
+                    'absolute inset-0 flex w-[200%] transition-transform duration-300 ease-out will-change-transform',
+                    // Start position depends on direction; animate to the opposite when animProgress becomes true
+                    direction === 'next'
+                      ? animProgress
+                        ? '-translate-x-1/2'
+                        : 'translate-x-0'
+                      : animProgress
+                        ? 'translate-x-0'
+                        : '-translate-x-1/2'
+                  )}
+                  style={{}}
+                  onTransitionEnd={() => {
+                    if (targetIndex !== null) setActiveIndex(targetIndex)
+                    setTransitioning(false)
+                    setTargetIndex(null)
+                    setAnimProgress(false)
+                    // activeUrl will update via effect when index changes
+                  }}
+                >
+                  {direction === 'next' ? (
+                    <>
+                      <div className='w-1/2 h-full flex items-center justify-center'>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={pair.current || ''}
+                          alt='current'
+                          className='max-w-[98vw] max-h-[98vh] object-contain'
+                        />
+                      </div>
+                      <div className='w-1/2 h-full flex items-center justify-center'>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={pair.other || ''}
+                          alt='next'
+                          className='max-w-[98vw] max-h-[98vh] object-contain'
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className='w-1/2 h-full flex items-center justify-center'>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={pair.other || ''}
+                          alt='prev'
+                          className='max-w-[98vw] max-h-[98vh] object-contain'
+                        />
+                      </div>
+                      <div className='w-1/2 h-full flex items-center justify-center'>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={pair.current || ''}
+                          alt='current'
+                          className='max-w-[98vw] max-h-[98vh] object-contain'
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {items.length > 1 && (
+                <>
+                  <button
+                    type='button'
+                    className='absolute left-3 md:left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/40 hover:bg-black/60 text-white p-2 backdrop-blur-sm'
+                    aria-label='Previous image'
+                    onClick={goPrev}
+                  >
+                    <ChevronLeft className='w-6 h-6' />
+                  </button>
+                  <button
+                    type='button'
+                    className='absolute right-3 md:right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/40 hover:bg-black/60 text-white p-2 backdrop-blur-sm'
+                    aria-label='Next image'
+                    onClick={goNext}
+                  >
+                    <ChevronRight className='w-6 h-6' />
+                  </button>
+                  <div className='absolute bottom-3 left-1/2 -translate-x-1/2 text-white/80 text-xs bg-black/30 px-2 py-1 rounded-full'>
+                    {activeIndex + 1} / {items.length}
+                  </div>
+                </>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>

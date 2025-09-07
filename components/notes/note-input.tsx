@@ -21,6 +21,7 @@ import {
   Paperclip,
   X,
 } from 'lucide-react'
+import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog'
 import {
   useNoteContentValidation,
   useContentStats,
@@ -91,6 +92,28 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       rowId?: string
     }
     const [attachments, setAttachments] = useState<AttachmentDraft[]>([])
+
+    // Local fullscreen preview for draft attachments
+    const [thumbViewerOpen, setThumbViewerOpen] = useState(false)
+    const [thumbActiveIndex, setThumbActiveIndex] = useState(0)
+
+    // Keyboard navigation for preview (left/right)
+    useEffect(() => {
+      if (!thumbViewerOpen) return
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'ArrowRight') {
+          setThumbActiveIndex(i => (i + 1) % Math.max(attachments.length, 1))
+        } else if (e.key === 'ArrowLeft') {
+          setThumbActiveIndex(
+            i =>
+              (i - 1 + Math.max(attachments.length, 1)) %
+              Math.max(attachments.length, 1)
+          )
+        }
+      }
+      window.addEventListener('keydown', onKey)
+      return () => window.removeEventListener('keydown', onKey)
+    }, [thumbViewerOpen, attachments.length])
 
     // Track if textarea is multi-line for button positioning
     const [isMultiLine, setIsMultiLine] = useState(false)
@@ -583,12 +606,22 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                 {/* Preview grid (inside container, above textarea) */}
                 {attachments.length > 0 && (
                   <div className='mb-2 flex gap-2 flex-wrap max-w-full'>
-                    {attachments.map(a => (
+                    {attachments.map((a, idx) => (
                       <div
                         key={a.id}
                         className='relative w-24 h-24 rounded-md overflow-hidden border border-border/60 bg-muted/30'
                         data-testid={`thumb-${a.id}`}
                       >
+                        {/* Click surface to open fullscreen preview */}
+                        <button
+                          type='button'
+                          aria-label='Open attachment preview'
+                          className='absolute inset-0 z-0'
+                          onClick={() => {
+                            setThumbActiveIndex(idx)
+                            setThumbViewerOpen(true)
+                          }}
+                        />
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={a.previewUrl}
@@ -598,7 +631,7 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                         <button
                           type='button'
                           aria-label='Remove attachment'
-                          className='absolute top-1 right-1 bg-background/90 border border-border rounded-full p-1 shadow'
+                          className='absolute top-1 right-1 z-10 bg-background/90 border border-border rounded-full p-1 shadow'
                           onClick={() => removeAttachment(a.id)}
                           data-testid={`remove-${a.id}`}
                         >
@@ -686,6 +719,31 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
               </button>
             </div>
           </form>
+
+          {/* Fullscreen preview for draft attachments */}
+          <Dialog open={thumbViewerOpen} onOpenChange={setThumbViewerOpen}>
+            <DialogContent className='w-screen h-screen max-w-none p-0 bg-black/90 border-none flex items-center justify-center'>
+              <DialogClose asChild>
+                <button
+                  type='button'
+                  aria-label='Close viewer'
+                  className='absolute left-4 top-4 z-[60] rounded-md bg-black/60 text-white hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 p-2'
+                >
+                  <X className='h-5 w-5' />
+                </button>
+              </DialogClose>
+              {attachments[thumbActiveIndex] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={attachments[thumbActiveIndex].previewUrl}
+                  alt='attachment preview'
+                  className='max-w-[98vw] max-h-[98vh] object-contain'
+                />
+              ) : (
+                <div className='text-muted-foreground'>Loading…</div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* Validation Feedback */}
           {(hasValidationError || showCharacterCount) && (

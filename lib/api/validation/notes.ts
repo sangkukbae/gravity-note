@@ -16,6 +16,11 @@ export interface CreateNoteBody {
   title?: string | null
 }
 
+// Minimal, localized sanitizer to prevent invisible Unicode that breaks search
+function normalizeForSearch(s: string): string {
+  return s.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+}
+
 export function parseCreateNoteBody(body: any): CreateNoteBody {
   assert(body && typeof body === 'object', 'Invalid body')
   assert(isNonEmptyString(body.content), 'content is required')
@@ -27,9 +32,12 @@ export function parseCreateNoteBody(body: any): CreateNoteBody {
     'title must be string or null'
   )
   return {
-    content: body.content,
+    content: normalizeForSearch(body.content),
     clientId: body.clientId,
-    title: body.title ?? null,
+    title:
+      body.title === undefined || body.title === null
+        ? null
+        : normalizeForSearch(body.title),
   }
 }
 
@@ -59,5 +67,13 @@ export function parseUpdateNoteBody(body: any): UpdateNoteBody {
       typeof updates.is_rescued === 'boolean',
       'is_rescued must be boolean'
     )
-  return { id: body.id, updates }
+  // Apply normalization defensively on server as well
+  const normalizedUpdates: UpdateNoteBody['updates'] = { ...updates }
+  if (typeof normalizedUpdates.content === 'string') {
+    normalizedUpdates.content = normalizeForSearch(normalizedUpdates.content)
+  }
+  if (typeof normalizedUpdates.title === 'string') {
+    normalizedUpdates.title = normalizeForSearch(normalizedUpdates.title)
+  }
+  return { id: body.id, updates: normalizedUpdates }
 }

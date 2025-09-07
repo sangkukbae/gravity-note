@@ -383,11 +383,11 @@ export function TemporalCommandPalette({
                                 }
                               )}
                             </span>
-                            {result.is_rescued && (
+                            {/* {result.is_rescued && (
                               <Badge variant='outline' className='text-xs'>
                                 Rescued
                               </Badge>
-                            )}
+                            )} */}
                           </div>
                         </div>
                       </div>
