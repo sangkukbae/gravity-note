@@ -508,13 +508,26 @@ export function useNotesMutations() {
     },
   })
 
-  // Delete note mutation with enhanced error handling
+  // Delete note mutation with enhanced error handling and offline support
   const deleteNoteMutation = useMutation({
     mutationFn: async (noteId: string): Promise<string> => {
       if (!user?.id) {
         throw new Error('User not authenticated')
       }
 
+      // Handle temporary notes (offline-created notes) differently
+      if (noteId.startsWith('temp_')) {
+        // For temporary notes, just remove from local state and outbox queue
+        // No need to call the server since they don't exist there yet
+
+        // For temporary notes, there's no server-side cleanup needed
+        // They only exist in local state and possibly in the outbox queue
+        console.log('Deleting temporary note from local state:', noteId)
+
+        return noteId
+      }
+
+      // For persisted notes, proceed with server deletion
       const executeRequest = async (): Promise<string> => {
         try {
           const res = await createNetworkRequest(
@@ -529,6 +542,16 @@ export function useNotesMutations() {
         } catch (error) {
           throw classifyError(error)
         }
+      }
+
+      // If offline, enqueue delete operation
+      if (!offline.effectiveOnline || networkStatus.isOffline) {
+        // Enqueue delete mutation for background sync
+        const item = createOutboxItem('delete', { noteId }, { tempId: noteId })
+        enqueueOutbox(user.id, item)
+
+        // Return immediately for optimistic deletion
+        return noteId
       }
 
       try {
@@ -558,9 +581,35 @@ export function useNotesMutations() {
           isOnline: networkStatus.effectiveOnline,
         })
 
-        console.error('Delete note failed:', errorLog)
-        throw classifyError(error)
+        console.error(
+          'Delete note failed, enqueueing for offline sync:',
+          errorLog
+        )
+
+        // Fallback to offline queue for non-temp notes
+        const item = createOutboxItem('delete', { noteId }, { tempId: noteId })
+        enqueueOutbox(user.id, item)
+
+        // Return success to allow optimistic deletion
+        return noteId
       }
+    },
+    // Add optimistic update with rollback capability
+    onMutate: async (noteId: string) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: notesQueryKey })
+
+      // Snapshot the previous value for rollback
+      const previousNotes =
+        queryClient.getQueryData<Note[]>(notesQueryKey) || []
+
+      // Optimistically update the cache
+      queryClient.setQueryData<Note[]>(notesQueryKey, (oldNotes = []) => {
+        return oldNotes.filter(note => note.id !== noteId)
+      })
+
+      // Return context for rollback
+      return { previousNotes, deletedNoteId: noteId }
     },
     onSuccess: deletedNoteId => {
       // Real-time will handle the update, but ensure local state is consistent
@@ -568,11 +617,17 @@ export function useNotesMutations() {
         return oldNotes.filter(note => note.id !== deletedNoteId)
       })
     },
-    onError: error => {
+    onError: (error, noteId, context) => {
+      // Rollback the optimistic update on error
+      if (context?.previousNotes) {
+        queryClient.setQueryData(notesQueryKey, context.previousNotes)
+      }
+
       console.error('Delete note mutation error:', {
         error: error.message,
         networkStatus: networkStatus.quality,
         isOnline: networkStatus.effectiveOnline,
+        noteId,
       })
     },
   })
@@ -1192,6 +1247,56 @@ export function useNotesMutations() {
                 })
 
                 console.warn('Outbox flush error:', errorLog)
+
+                return {
+                  status: shouldRetry ? 'retry' : 'fail',
+                  errorMessage: error.userMessage,
+                }
+              }
+
+              // Classify other errors
+              const classifiedError = classifyError(error)
+              return {
+                status: classifiedError.isRetryable ? 'retry' : 'fail',
+                errorMessage: classifiedError.userMessage,
+              }
+            }
+          }
+
+          if (item.type === 'delete') {
+            const { noteId } = item.payload as { noteId: string }
+
+            try {
+              const res = await createNetworkRequest(
+                `/api/notes?id=${encodeURIComponent(noteId)}`,
+                {
+                  method: 'DELETE',
+                }
+              )
+
+              // Success - note deleted on server
+              // Remove from local cache if still present
+              queryClient.setQueryData<Note[]>(['notes', user.id], (old = []) =>
+                old.filter(note => note.id !== noteId)
+              )
+
+              return { status: 'success', mappedId: noteId }
+            } catch (error) {
+              // Use network error classification to determine retry behavior
+              if (error instanceof NetworkError) {
+                const shouldRetry =
+                  error.isRetryable && error.retryStrategy.retryCondition(error)
+
+                // Log error for monitoring
+                const errorLog = formatErrorForLogging(error, {
+                  operation: 'flush_outbox_delete',
+                  userId: user.id,
+                  noteId,
+                  networkQuality: networkStatus.quality,
+                  isOnline: networkStatus.effectiveOnline,
+                })
+
+                console.warn('Outbox delete flush error:', errorLog)
 
                 return {
                   status: shouldRetry ? 'retry' : 'fail',
