@@ -1428,7 +1428,7 @@ Follow‑ups
 
 - [x] `docs/IMAGE_ATTACHMENT_SYSTEM.md` - Comprehensive attachment system documentation
   - [x] Database schema and type definitions
-  - [x] Storage strategy and lifecycle management  
+  - [x] Storage strategy and lifecycle management
   - [x] Component architecture and data flows
   - [x] Security considerations and RLS policies
 - [x] `docs/SHIKI_DYNAMIC_IMPORT_RESEARCH.md` - Syntax highlighting optimization research

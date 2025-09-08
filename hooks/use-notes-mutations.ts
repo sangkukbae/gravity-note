@@ -604,7 +604,9 @@ export function useNotesMutations() {
           .from('notes')
           .select('*')
           .eq('user_id', user.id)
-          .or(`content.ilike.%${trimmedQuery}%,title.ilike.%${trimmedQuery}%`)
+          .or(
+            `content_norm.ilike.%${trimmedQuery}%,title_norm.ilike.%${trimmedQuery}%`
+          )
           .order('updated_at', { ascending: false })
           .limit(maxResults)
 

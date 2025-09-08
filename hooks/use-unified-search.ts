@@ -209,11 +209,15 @@ export function useUnifiedSearch() {
       const trimmedQuery = query.trim()
 
       try {
+        // 1) Try normalized columns
         const { data, error } = await supabase
           .from('notes')
           .select('*')
           .eq('user_id', user.id)
-          .or(`content.ilike.%${trimmedQuery}%,title.ilike.%${trimmedQuery}%`)
+          // Use normalized generated columns if present; falls back gracefully if missing
+          .or(
+            `content_norm.ilike.%${trimmedQuery}%,title_norm.ilike.%${trimmedQuery}%`
+          )
           .order('updated_at', { ascending: false })
           .limit(maxResults)
 
@@ -223,6 +227,19 @@ export function useUnifiedSearch() {
 
         let rows = data || []
 
+        // 1.5) If normalized path returned empty, fallback to raw ILIKE (compat for environments
+        // where generated columns may not be available yet)
+        if (rows.length === 0) {
+          const { data: rawData } = await supabase
+            .from('notes')
+            .select('*')
+            .eq('user_id', user.id)
+            .or(`content.ilike.%${trimmedQuery}%,title.ilike.%${trimmedQuery}%`)
+            .order('updated_at', { ascending: false })
+            .limit(maxResults)
+          if (rawData && rawData.length > 0) rows = rawData
+        }
+
         // No direct substring match? Try a tolerant fallback that allows
         // arbitrary characters between query characters (e.g. "12312 3" for "123123").
         if (rows.length === 0 && trimmedQuery.length >= 3) {
@@ -231,12 +248,24 @@ export function useUnifiedSearch() {
             .from('notes')
             .select('*')
             .eq('user_id', user.id)
-            .or(`content.ilike.${expanded},title.ilike.${expanded}`)
+            .or(`content_norm.ilike.${expanded},title_norm.ilike.${expanded}`)
             .order('updated_at', { ascending: false })
             .limit(maxResults)
 
           if (!looseError && looseData) {
             rows = looseData
+          }
+
+          // Fallback loose on raw as final attempt
+          if (rows.length === 0) {
+            const { data: looseRaw } = await supabase
+              .from('notes')
+              .select('*')
+              .eq('user_id', user.id)
+              .or(`content.ilike.${expanded},title.ilike.${expanded}`)
+              .order('updated_at', { ascending: false })
+              .limit(maxResults)
+            if (looseRaw && looseRaw.length > 0) rows = looseRaw
           }
         }
 

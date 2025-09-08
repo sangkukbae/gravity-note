@@ -234,7 +234,7 @@ export const NoteList = memo(function NoteList({
                   ? lastElementRef
                   : undefined
               }
-              className='px-4' // Container padding for clean boundaries
+              className='px-4 w-full max-w-[720px] mx-auto' // Centered, readable width
             >
               <NoteItem
                 note={enhancedNote}

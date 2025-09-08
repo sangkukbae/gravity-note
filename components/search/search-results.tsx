@@ -203,11 +203,7 @@ function SearchResultItem({
               )}
             </div>
 
-            {result.is_rescued && (
-              <Badge variant='outline' className='text-xs'>
-                Rescued
-              </Badge>
-            )}
+            {/* 'Rescued' badge removed from list view as requested */}
           </div>
         </div>
       </CardContent>

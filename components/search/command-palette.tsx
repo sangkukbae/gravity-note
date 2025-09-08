@@ -250,11 +250,7 @@ export function CommandPalette({
                               : ''}
                           </Badge>
                         )}
-                        {result.is_rescued && (
-                          <Badge variant='outline' className='text-xs'>
-                            Rescued
-                          </Badge>
-                        )}
+                        {/* Removed 'Rescued' badge in search UI for cleaner look */}
                       </div>
                     </div>
                   </div>
