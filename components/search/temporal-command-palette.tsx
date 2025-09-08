@@ -143,6 +143,12 @@ export function TemporalCommandPalette({
               useEnhancedSearch: true,
             })
             if (!cancelled) {
+              console.debug(
+                '[palette] unified search sections',
+                result.sections?.length,
+                'total',
+                result.totalNotes
+              )
               setData(result)
             }
           } else {
@@ -152,6 +158,12 @@ export function TemporalCommandPalette({
               groupByTime: true,
             })
             if (!cancelled) {
+              console.debug(
+                '[palette] unified browse sections',
+                result.sections?.length,
+                'total',
+                result.totalNotes
+              )
               setData(result)
             }
           }
@@ -327,7 +339,9 @@ export function TemporalCommandPalette({
                 {section.notes.map((result, index) => (
                   <CommandItem
                     key={result.id}
-                    value={`${result.id}-${sectionIndex}-${index}`}
+                    // Ensure value is unique to avoid cmdk selecting multiple items
+                    // when duplicate titles/contents exist.
+                    value={`${result.id} ${result.title ?? ''} ${result.content ?? ''}`}
                     onSelect={() => handleResultSelect(result)}
                     className='flex flex-col items-start gap-2 p-3 cursor-pointer'
                   >

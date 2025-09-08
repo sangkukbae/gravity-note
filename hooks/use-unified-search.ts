@@ -209,63 +209,147 @@ export function useUnifiedSearch() {
       const trimmedQuery = query.trim()
 
       try {
-        // 1) Try normalized columns
-        const { data, error } = await supabase
-          .from('notes')
-          .select('*')
-          .eq('user_id', user.id)
-          // Use normalized generated columns if present; falls back gracefully if missing
-          .or(
-            `content_norm.ilike.%${trimmedQuery}%,title_norm.ilike.%${trimmedQuery}%`
-          )
-          .order('updated_at', { ascending: false })
-          .limit(maxResults)
+        // 1) Try normalized columns. Avoid PostgREST `.or()` quirks by issuing two queries
+        // and merging client-side.
+        const [contentRes, titleRes] = await Promise.all([
+          supabase
+            .from('notes')
+            .select('*')
+            .eq('user_id', user.id)
+            .ilike('content_norm', `%${trimmedQuery}%`)
+            .order('updated_at', { ascending: false })
+            .limit(maxResults),
+          supabase
+            .from('notes')
+            .select('*')
+            .eq('user_id', user.id)
+            .ilike('title_norm', `%${trimmedQuery}%`)
+            .order('updated_at', { ascending: false })
+            .limit(maxResults),
+        ])
 
-        if (error) {
-          throw new Error(`Failed to search notes: ${error.message}`)
+        console.debug(
+          '[unified-search] norm content count',
+          contentRes.data?.length ?? 0,
+          'title count',
+          titleRes.data?.length ?? 0
+        )
+
+        if (contentRes.error) {
+          throw new Error(`Failed to search notes: ${contentRes.error.message}`)
+        }
+        if (titleRes.error) {
+          throw new Error(`Failed to search notes: ${titleRes.error.message}`)
         }
 
-        let rows = data || []
+        const mergedNorm = new Map<string, Note>()
+        ;(contentRes.data || []).forEach(n => mergedNorm.set(n.id, n as any))
+        ;(titleRes.data || []).forEach(n => {
+          if (!mergedNorm.has(n.id)) mergedNorm.set(n.id, n as any)
+        })
+        let rows = Array.from(mergedNorm.values())
 
         // 1.5) If normalized path returned empty, fallback to raw ILIKE (compat for environments
         // where generated columns may not be available yet)
         if (rows.length === 0) {
-          const { data: rawData } = await supabase
-            .from('notes')
-            .select('*')
-            .eq('user_id', user.id)
-            .or(`content.ilike.%${trimmedQuery}%,title.ilike.%${trimmedQuery}%`)
-            .order('updated_at', { ascending: false })
-            .limit(maxResults)
-          if (rawData && rawData.length > 0) rows = rawData
+          const [rawContent, rawTitle] = await Promise.all([
+            supabase
+              .from('notes')
+              .select('*')
+              .eq('user_id', user.id)
+              .ilike('content', `%${trimmedQuery}%`)
+              .order('updated_at', { ascending: false })
+              .limit(maxResults),
+            supabase
+              .from('notes')
+              .select('*')
+              .eq('user_id', user.id)
+              .ilike('title', `%${trimmedQuery}%`)
+              .order('updated_at', { ascending: false })
+              .limit(maxResults),
+          ])
+          console.debug(
+            '[unified-search] raw content count',
+            rawContent.data?.length ?? 0,
+            'title count',
+            rawTitle.data?.length ?? 0
+          )
+          const mergedRaw = new Map<string, Note>()
+          ;(rawContent.data || []).forEach(n => mergedRaw.set(n.id, n as any))
+          ;(rawTitle.data || []).forEach(n => {
+            if (!mergedRaw.has(n.id)) mergedRaw.set(n.id, n as any)
+          })
+          const arr = Array.from(mergedRaw.values())
+          if (arr.length > 0) rows = arr
         }
 
         // No direct substring match? Try a tolerant fallback that allows
         // arbitrary characters between query characters (e.g. "12312 3" for "123123").
         if (rows.length === 0 && trimmedQuery.length >= 3) {
           const expanded = `%${trimmedQuery.split('').join('%')}%`
-          const { data: looseData, error: looseError } = await supabase
-            .from('notes')
-            .select('*')
-            .eq('user_id', user.id)
-            .or(`content_norm.ilike.${expanded},title_norm.ilike.${expanded}`)
-            .order('updated_at', { ascending: false })
-            .limit(maxResults)
-
-          if (!looseError && looseData) {
-            rows = looseData
-          }
-
-          // Fallback loose on raw as final attempt
-          if (rows.length === 0) {
-            const { data: looseRaw } = await supabase
+          const [looseNormContent, looseNormTitle] = await Promise.all([
+            supabase
               .from('notes')
               .select('*')
               .eq('user_id', user.id)
-              .or(`content.ilike.${expanded},title.ilike.${expanded}`)
+              .ilike('content_norm', expanded)
               .order('updated_at', { ascending: false })
-              .limit(maxResults)
-            if (looseRaw && looseRaw.length > 0) rows = looseRaw
+              .limit(maxResults),
+            supabase
+              .from('notes')
+              .select('*')
+              .eq('user_id', user.id)
+              .ilike('title_norm', expanded)
+              .order('updated_at', { ascending: false })
+              .limit(maxResults),
+          ])
+          console.debug(
+            '[unified-search] loose norm content count',
+            looseNormContent.data?.length ?? 0,
+            'title count',
+            looseNormTitle.data?.length ?? 0
+          )
+          const looseMerged = new Map<string, Note>()
+          ;(looseNormContent.data || []).forEach(n =>
+            looseMerged.set(n.id, n as any)
+          )
+          ;(looseNormTitle.data || []).forEach(n => {
+            if (!looseMerged.has(n.id)) looseMerged.set(n.id, n as any)
+          })
+          rows = Array.from(looseMerged.values())
+
+          // Fallback loose on raw as final attempt
+          if (rows.length === 0) {
+            const [looseRawContent, looseRawTitle] = await Promise.all([
+              supabase
+                .from('notes')
+                .select('*')
+                .eq('user_id', user.id)
+                .ilike('content', expanded)
+                .order('updated_at', { ascending: false })
+                .limit(maxResults),
+              supabase
+                .from('notes')
+                .select('*')
+                .eq('user_id', user.id)
+                .ilike('title', expanded)
+                .order('updated_at', { ascending: false })
+                .limit(maxResults),
+            ])
+            console.debug(
+              '[unified-search] loose raw content count',
+              looseRawContent.data?.length ?? 0,
+              'title count',
+              looseRawTitle.data?.length ?? 0
+            )
+            const looseRawMerged = new Map<string, Note>()
+            ;(looseRawContent.data || []).forEach(n =>
+              looseRawMerged.set(n.id, n as any)
+            )
+            ;(looseRawTitle.data || []).forEach(n => {
+              if (!looseRawMerged.has(n.id)) looseRawMerged.set(n.id, n as any)
+            })
+            rows = Array.from(looseRawMerged.values())
           }
         }
 
@@ -280,6 +364,7 @@ export function useUnifiedSearch() {
           return text.replace(pattern, '<mark>$1</mark>')
         }
 
+        console.debug('[unified-search] rows before map', rows.length)
         // Convert to unified format with client-side classification + highlighting
         return rows.map((note: Note) => ({
           ...note,
@@ -324,6 +409,7 @@ export function useUnifiedSearch() {
             trimmedQuery,
             finalOptions
           )
+          console.debug('[unified-search] basicResults', basicResults.length)
           const sections = groupByTime
             ? groupNotesByTime(basicResults)
             : [
@@ -335,6 +421,10 @@ export function useUnifiedSearch() {
                   isExpanded: true,
                 },
               ]
+          console.debug(
+            '[unified-search] sections after group',
+            sections.length
+          )
 
           const endTime = performance.now()
           const groupCounts = basicResults.reduce(

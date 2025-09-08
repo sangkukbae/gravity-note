@@ -604,8 +604,9 @@ export function useNotesMutations() {
           .from('notes')
           .select('*')
           .eq('user_id', user.id)
+          // Use `*` wildcards with PostgREST string `.or()` syntax.
           .or(
-            `content_norm.ilike.%${trimmedQuery}%,title_norm.ilike.%${trimmedQuery}%`
+            `content_norm.ilike.*${trimmedQuery}*,title_norm.ilike.*${trimmedQuery}*`
           )
           .order('updated_at', { ascending: false })
           .limit(maxResults)
