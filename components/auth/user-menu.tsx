@@ -61,7 +61,7 @@ export function UserMenu() {
           <div className='px-3 py-2'>
             <p className='text-sm font-medium leading-tight'>{user.email}</p>
             <p className='text-xs text-muted-foreground'>
-              {user.user_metadata?.full_name || 'User'}
+              {user.user_metadata?.full_name}
             </p>
           </div>
           <DropdownMenuSeparator />

@@ -187,7 +187,8 @@ export const NoteItem = memo(function NoteItem({
           // Modern focus styles
           'focus-within:bg-muted/40 focus-within:outline-none',
           // Smooth interactive states
-          'cursor-default select-none',
+          // Allow text selection for easy copy while keeping default cursor
+          'cursor-default select-text',
           className
         )}
         onMouseEnter={() => setIsHovered(true)}

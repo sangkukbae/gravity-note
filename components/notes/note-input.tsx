@@ -732,16 +732,23 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
                   <X className='h-5 w-5' />
                 </button>
               </DialogClose>
-              {attachments[thumbActiveIndex] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={attachments[thumbActiveIndex].previewUrl}
-                  alt='attachment preview'
-                  className='max-w-[98vw] max-h-[98vh] object-contain'
-                />
-              ) : (
-                <div className='text-muted-foreground'>Loading…</div>
-              )}
+              <div
+                className='relative w-full h-full flex items-center justify-center'
+                onClick={e => {
+                  if (e.target === e.currentTarget) setThumbViewerOpen(false)
+                }}
+              >
+                {attachments[thumbActiveIndex] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={attachments[thumbActiveIndex].previewUrl}
+                    alt='attachment preview'
+                    className='max-w-[98vw] max-h-[98vh] object-contain'
+                  />
+                ) : (
+                  <div className='text-muted-foreground'>Loading…</div>
+                )}
+              </div>
             </DialogContent>
           </Dialog>
 

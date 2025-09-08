@@ -546,7 +546,8 @@ export const NotesContainer = forwardRef<
           isOpen={isModalOpen}
           onOpenChange={setIsModalOpen}
           onSubmit={async (content: string) => {
-            await handleCreateNote(content)
+            const note = await handleCreateNote(content)
+            return note ? { id: note.id } : undefined
           }}
           isLoading={isCreating}
           placeholder="What's on your mind? Share your thoughts, ideas, or capture what you're learning..."
