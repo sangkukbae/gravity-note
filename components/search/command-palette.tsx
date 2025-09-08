@@ -198,7 +198,9 @@ export function CommandPalette({
             {results.map((result, index) => (
               <CommandItem
                 key={result.id}
-                value={`${result.id}-${index}`}
+                // Use unique value to prevent duplicate-selection bug when two notes
+                // have identical content/title.
+                value={`${result.id} ${result.title ?? ''} ${result.content ?? ''}`}
                 onSelect={() => handleResultSelect(result)}
                 className='flex flex-col items-start gap-2 p-3 cursor-pointer'
               >

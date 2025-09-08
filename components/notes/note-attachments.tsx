@@ -529,6 +529,12 @@ export function NoteAttachments({
             </DialogClose>
             <div
               className='relative w-full h-full flex items-center justify-center select-none overflow-hidden'
+              // Close when clicking on the empty backdrop area (not the image or controls)
+              onClick={e => {
+                if (e.target === e.currentTarget) {
+                  setViewerOpen(false)
+                }
+              }}
               onTouchStart={e => {
                 touchStartXRef.current = e.touches[0]?.clientX ?? null
               }}
