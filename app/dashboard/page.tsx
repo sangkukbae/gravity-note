@@ -489,7 +489,7 @@ export default function DashboardPage() {
                         title='Live: Real-time sync is active. Changes appear instantly across your devices.'
                         aria-label='Real-time sync is active'
                       >
-                        <div className='w-1.5 h-1.5 bg-green-500 rounded-full'></div>
+                        <div className='w-1.5 h-1.5 bg-green-500 rounded-full animate-live-pulse'></div>
                         <span className='text-[10px] font-medium uppercase tracking-wide'>
                           Live
                         </span>
