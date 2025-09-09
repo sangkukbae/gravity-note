@@ -200,6 +200,11 @@ export const NotesContainer = forwardRef<
       }
     }, [])
 
+    // Handle FAB click - simply opens note creation modal
+    const handleOpenCreateModal = useCallback(() => {
+      setIsModalOpen(true)
+    }, [])
+
     // Handle note creation
     const handleCreateNote = useCallback(
       async (content: string) => {
@@ -531,8 +536,7 @@ export const NotesContainer = forwardRef<
         {/* Scroll-based Floating Action Button - only show when input is scrolled out of view */}
         {showFAB && (
           <FloatingActionButton
-            onClick={() => setIsModalOpen(true)}
-            aria-label='Create new note'
+            onClick={handleOpenCreateModal}
             className={cn(
               'transition-all duration-200 ease-out',
               showFAB ? 'opacity-100 scale-100' : 'opacity-0 scale-95'

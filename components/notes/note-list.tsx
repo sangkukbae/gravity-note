@@ -239,10 +239,10 @@ export const NoteList = memo(function NoteList({
               <NoteItem
                 note={enhancedNote}
                 isRescuing={isCurrentlyRescuing}
-                showRescueButton={index > 0} // Don't show rescue for the top note
+                showRescueButton={true} // Always show action buttons
                 showDivider={index < filteredNotes.length - 1} // Pass divider flag to note item
                 showRescuedBadge={index === 0 && Boolean(note.is_rescued)}
-                {...(onRescue ? { onRescue } : {})}
+                {...(onRescue && index > 0 ? { onRescue } : {})} // Only pass onRescue for non-top notes
               />
             </div>
           )

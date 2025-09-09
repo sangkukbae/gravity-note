@@ -129,9 +129,9 @@ export const SearchResultsState = memo(
                 <NoteItem
                   note={note}
                   isRescuing={isCurrentlyRescuing}
-                  showRescueButton={index > 0} // Don't show rescue for the top note
+                  showRescueButton={true} // Always show action buttons
                   showDivider={index < notes.length - 1}
-                  {...(onRescue ? { onRescue } : {})}
+                  {...(onRescue && index > 0 ? { onRescue } : {})} // Only pass onRescue for non-top notes
                 />
               </div>
             )
@@ -200,9 +200,9 @@ export const BrowsingState = memo(
                 <NoteItem
                   note={note}
                   isRescuing={isCurrentlyRescuing}
-                  showRescueButton={index > 0} // Don't show rescue for the top note
+                  showRescueButton={true} // Always show action buttons
                   showDivider={index < notes.length - 1}
-                  {...(onRescue ? { onRescue } : {})}
+                  {...(onRescue && index > 0 ? { onRescue } : {})} // Only pass onRescue for non-top notes
                 />
               </div>
             )
