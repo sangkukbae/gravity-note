@@ -8,16 +8,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreVertical, PencilIcon } from 'lucide-react'
+import { MoreVertical, PencilIcon, Trash2 } from 'lucide-react'
 
 interface NoteMoreMenuProps {
   canEdit: boolean
   onEdit: () => void
+  canDelete?: boolean
+  onDelete?: () => void
 }
 
 export const NoteMoreMenu = memo(function NoteMoreMenu({
   canEdit,
   onEdit,
+  canDelete = true,
+  onDelete,
 }: NoteMoreMenuProps) {
   const [open, setOpen] = useState(false)
   const handleOpenChange = useCallback((next: boolean) => setOpen(next), [])
@@ -25,6 +29,11 @@ export const NoteMoreMenu = memo(function NoteMoreMenu({
     onEdit()
     setOpen(false)
   }, [onEdit])
+
+  const handleDelete = useCallback(() => {
+    onDelete?.()
+    setOpen(false)
+  }, [onDelete])
 
   return (
     <DropdownMenu open={open} onOpenChange={handleOpenChange}>
@@ -46,6 +55,14 @@ export const NoteMoreMenu = memo(function NoteMoreMenu({
         >
           <PencilIcon className='h-4 w-4 mr-2' /> Edit
         </DropdownMenuItem>
+        {canDelete && onDelete && (
+          <DropdownMenuItem
+            className='cursor-pointer text-destructive focus:text-destructive'
+            onClick={handleDelete}
+          >
+            <Trash2 className='h-4 w-4 mr-2' /> Delete
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

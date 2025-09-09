@@ -141,15 +141,82 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'id is required' }, { status: 400 })
   }
 
-  const { error } = await supabase
-    .from('notes')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id)
+  try {
+    // First, check if the note exists and belongs to the user
+    const { data: noteData, error: noteError } = await supabase
+      .from('notes')
+      .select('id, user_id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    if (noteError || !noteData) {
+      return NextResponse.json({ error: 'Note not found' }, { status: 404 })
+    }
+
+    // Get all attachments for this note to clean up storage files
+    const { data: attachments, error: attachmentsError } = await supabase
+      .from('note_attachments')
+      .select('id, storage_path')
+      .eq('note_id', id)
+
+    if (attachmentsError) {
+      console.error(
+        'Failed to fetch attachments for deletion:',
+        attachmentsError
+      )
+      // Continue with note deletion even if attachment query fails
+    }
+
+    // Delete attachment files from storage if any exist
+    if (attachments && attachments.length > 0) {
+      const filesToDelete = attachments
+        .filter(attachment => attachment.storage_path) // Only valid storage paths
+        .map(attachment => attachment.storage_path)
+
+      if (filesToDelete.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('note-images')
+          .remove(filesToDelete)
+
+        if (storageError) {
+          console.error(
+            'Failed to delete attachment files from storage:',
+            storageError
+          )
+          // Continue with database deletion even if storage cleanup fails
+          // This prevents orphaned database records while allowing manual storage cleanup
+        } else {
+          console.log(
+            `Successfully deleted ${filesToDelete.length} attachment files from storage`
+          )
+        }
+      }
+    }
+
+    // Delete the note (this will cascade delete attachments due to FK constraints)
+    const { error: deleteError } = await supabase
+      .from('notes')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 400 })
+    }
+
+    console.log(
+      `Successfully deleted note ${id} with ${attachments?.length || 0} attachments`
+    )
+    return NextResponse.json({
+      id,
+      deletedAttachments: attachments?.length || 0,
+    })
+  } catch (error) {
+    console.error('Unexpected error during note deletion:', error)
+    return NextResponse.json(
+      { error: 'Internal server error during deletion' },
+      { status: 500 }
+    )
   }
-
-  return NextResponse.json({ id })
 }

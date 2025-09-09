@@ -16,6 +16,7 @@ import { PendingNoteBadge } from '@/components/ui/pending-note-badge'
 import { useNotePendingStatus } from '@/hooks/use-note-pending-status'
 import { NoteAttachments } from './note-attachments'
 import { NoteEditModal } from './note-edit-modal'
+import { NoteDeleteModal } from './note-delete-modal'
 import { useNotesMutations } from '@/hooks/use-notes-mutations'
 import { NoteMoreMenu } from './note-more-menu'
 
@@ -57,7 +58,9 @@ export const NoteItem = memo(function NoteItem({
   const [isHovered, setIsHovered] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const previousHeightRef = useRef<number>(0)
   const onHeightChangeRef = useRef<NoteItemProps['onHeightChange']>()
@@ -66,7 +69,7 @@ export const NoteItem = memo(function NoteItem({
   const { isNotePending } = useNotePendingStatus()
   const isPending = isNotePending(note.id)
 
-  const { updateNoteAsync } = useNotesMutations()
+  const { updateNoteAsync, deleteNoteAsync } = useNotesMutations()
 
   // Character limit for truncation (approximately 300 characters)
   const CHAR_LIMIT = 300
@@ -145,6 +148,16 @@ export const NoteItem = memo(function NoteItem({
     [note.id, updateNoteAsync]
   )
 
+  const handleDeleteConfirm = useCallback(async () => {
+    try {
+      setIsDeleting(true)
+      await deleteNoteAsync(note.id)
+      setIsDeleteOpen(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }, [note.id, deleteNoteAsync])
+
   // Memoize expensive calculations
   // Show relative time based on last activity: prefer updated_at (e.g., rescue)
   // and fall back to created_at.
@@ -219,6 +232,8 @@ export const NoteItem = memo(function NoteItem({
           <NoteMoreMenu
             canEdit={typeof note.content === 'string'}
             onEdit={() => setIsEditOpen(true)}
+            canDelete={true}
+            onDelete={() => setIsDeleteOpen(true)}
           />
         </div>
 
@@ -338,6 +353,17 @@ export const NoteItem = memo(function NoteItem({
         onSubmit={handleEditSubmit}
         isLoading={isUpdating}
         noteId={note.id}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <NoteDeleteModal
+        isOpen={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        notePreview={
+          typeof note.content === 'string' ? note.content : undefined
+        }
       />
     </div>
   )
