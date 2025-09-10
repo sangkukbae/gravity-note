@@ -2,9 +2,10 @@
 
 import { usePathname, useSearchParams } from 'next/navigation'
 import { usePostHog } from 'posthog-js/react'
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 
-export function PostHogPageView() {
+// Inner component that uses useSearchParams
+function PostHogPageViewInner() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const posthog = usePostHog()
@@ -29,6 +30,20 @@ export function PostHogPageView() {
   }, [pathname, searchParams, posthog])
 
   return null
+}
+
+// Fallback component for Suspense boundary
+function PostHogPageViewFallback() {
+  return null
+}
+
+// Main export with Suspense wrapper
+export function PostHogPageView() {
+  return (
+    <Suspense fallback={<PostHogPageViewFallback />}>
+      <PostHogPageViewInner />
+    </Suspense>
+  )
 }
 
 // Helper function to categorize app sections for analytics
