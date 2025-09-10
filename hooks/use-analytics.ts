@@ -2,10 +2,11 @@
 
 import { useCallback } from 'react'
 import { track } from '@vercel/analytics'
+import { usePostHog } from 'posthog-js/react'
 import { useAuthStore } from '@/lib/stores/auth'
 import { useOfflineStatus } from './use-offline-status'
 
-export interface NoteAnalyticsProperties {
+export interface NoteAnalyticsProperties extends Record<string, unknown> {
   noteId?: string
   contentLength?: number
   hasMarkdown?: boolean
@@ -13,7 +14,7 @@ export interface NoteAnalyticsProperties {
   timeToCreate?: number
 }
 
-export interface SearchAnalyticsProperties {
+export interface SearchAnalyticsProperties extends Record<string, unknown> {
   query: string
   resultCount: number
   searchTime: number
@@ -21,7 +22,8 @@ export interface SearchAnalyticsProperties {
   temporalGrouping?: boolean
 }
 
-export interface PerformanceAnalyticsProperties {
+export interface PerformanceAnalyticsProperties
+  extends Record<string, unknown> {
   metric: string
   value: number
   route?: string
@@ -30,90 +32,149 @@ export interface PerformanceAnalyticsProperties {
 export function useAnalytics() {
   const { user } = useAuthStore()
   const offline = useOfflineStatus()
+  const posthog = usePostHog()
+
+  // Helper to track to both Vercel Analytics and PostHog
+  const trackToServices = useCallback(
+    <P extends object>(eventName: string, properties: P) => {
+      const baseProperties = {
+        ...properties,
+        userId: user?.id ? 'authenticated' : 'anonymous',
+        timestamp: Date.now(),
+      }
+
+      // Track to Vercel Analytics with allowed primitive values only
+      const vercelProps = Object.entries(baseProperties).reduce(
+        (acc, [key, value]) => {
+          if (
+            value === null ||
+            typeof value === 'string' ||
+            typeof value === 'number' ||
+            typeof value === 'boolean'
+          ) {
+            acc[key] = value
+          }
+          return acc
+        },
+        {} as Record<string, string | number | boolean | null>
+      )
+
+      track(eventName, vercelProps)
+
+      // Track to PostHog if available
+      if (posthog) {
+        posthog.capture(eventName, {
+          ...baseProperties,
+          // Add PostHog specific properties
+          distinct_id: user?.id,
+          $groups: user?.id ? { user: user.id } : undefined,
+        })
+      }
+    },
+    [user?.id, posthog]
+  )
 
   const trackNoteCreation = useCallback(
     (properties: NoteAnalyticsProperties) => {
-      track('note_created', {
+      trackToServices('note_created', {
         ...properties,
-        userId: user?.id ? 'authenticated' : 'anonymous', // Anonymize for privacy
         isOffline: offline ? !offline.effectiveOnline : false,
-        timestamp: Date.now(),
       })
     },
-    [user?.id, offline]
+    [trackToServices, offline]
   )
 
   const trackNoteRescue = useCallback(
     (properties: NoteAnalyticsProperties) => {
-      track('note_rescued', {
-        ...properties,
-        userId: user?.id ? 'authenticated' : 'anonymous',
-        timestamp: Date.now(),
-      })
+      trackToServices('note_rescued', properties)
     },
-    [user?.id]
+    [trackToServices]
   )
 
   const trackSearch = useCallback(
     (properties: SearchAnalyticsProperties) => {
-      track('search_performed', {
+      trackToServices('search_performed', {
         ...properties,
-        userId: user?.id ? 'authenticated' : 'anonymous',
         queryLength: properties.query.length,
-        timestamp: Date.now(),
       })
     },
-    [user?.id]
+    [trackToServices]
   )
 
   const trackPageView = useCallback(
     (page: string, properties?: Record<string, unknown>) => {
-      track('page_view', {
+      trackToServices('page_view', {
         page,
-        userId: user?.id ? 'authenticated' : 'anonymous',
-        timestamp: Date.now(),
         ...properties,
       })
     },
-    [user?.id]
+    [trackToServices]
   )
 
   const trackPerformance = useCallback(
     (properties: PerformanceAnalyticsProperties) => {
-      track('performance_metric', {
-        ...properties,
-        userId: user?.id ? 'authenticated' : 'anonymous',
-        timestamp: Date.now(),
-      })
+      trackToServices('performance_metric', properties)
     },
-    [user?.id]
+    [trackToServices]
   )
 
   const trackUserAction = useCallback(
     (action: string, properties?: Record<string, unknown>) => {
-      track('user_action', {
+      trackToServices('user_action', {
         action,
-        userId: user?.id ? 'authenticated' : 'anonymous',
-        timestamp: Date.now(),
         ...properties,
       })
     },
-    [user?.id]
+    [trackToServices]
   )
 
   const trackError = useCallback(
     (error: string, context?: string) => {
-      track('error_occurred', {
+      trackToServices('error_occurred', {
         error,
         context: context || 'unknown',
-        userId: user?.id ? 'authenticated' : 'anonymous',
-        timestamp: Date.now(),
       })
     },
-    [user?.id]
+    [trackToServices]
+  )
+
+  // PostHog specific methods for beta features
+  const identifyUser = useCallback(
+    (userProps?: Record<string, unknown>) => {
+      if (posthog && user?.id) {
+        posthog.identify(user.id, {
+          email: user.email,
+          name: user.user_metadata?.full_name,
+          created_at: user.created_at,
+          ...userProps,
+        })
+      }
+    },
+    [posthog, user]
+  )
+
+  const trackFeatureUsed = useCallback(
+    (featureName: string, metadata?: Record<string, unknown>) => {
+      trackToServices('feature_used', {
+        feature: featureName,
+        ...metadata,
+      })
+    },
+    [trackToServices]
+  )
+
+  const trackBetaAction = useCallback(
+    (action: string, properties?: Record<string, unknown>) => {
+      trackToServices('beta_action', {
+        action,
+        ...properties,
+      })
+    },
+    [trackToServices]
   )
 
   return {
+    // Existing methods
     trackNoteCreation,
     trackNoteRescue,
     trackSearch,
@@ -121,5 +182,13 @@ export function useAnalytics() {
     trackPerformance,
     trackUserAction,
     trackError,
+
+    // PostHog specific methods
+    identifyUser,
+    trackFeatureUsed,
+    trackBetaAction,
+
+    // Raw access to PostHog for advanced usage
+    posthog,
   }
 }
