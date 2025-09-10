@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      beta_users: {
+        Row: {
+          id: string
+          user_id: string
+          invitation_code: string | null
+          status: 'invited' | 'active' | 'inactive' | 'expired'
+          invited_at: string
+          accepted_at: string | null
+          expires_at: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          invitation_code?: string | null
+          status?: 'invited' | 'active' | 'inactive' | 'expired'
+          invited_at?: string
+          accepted_at?: string | null
+          expires_at?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          invitation_code?: string | null
+          status?: 'invited' | 'active' | 'inactive' | 'expired'
+          invited_at?: string
+          accepted_at?: string | null
+          expires_at?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      beta_feedback: {
+        Row: {
+          id: string
+          user_id: string
+          type: 'general' | 'bug' | 'feature_request' | 'improvement'
+          content: string
+          rating: number | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type?: 'general' | 'bug' | 'feature_request' | 'improvement'
+          content: string
+          rating?: number | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: 'general' | 'bug' | 'feature_request' | 'improvement'
+          content?: string
+          rating?: number | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      feature_flags_usage: {
+        Row: {
+          id: string
+          user_id: string | null
+          flag_name: string
+          enabled: boolean
+          variant: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          flag_name: string
+          enabled: boolean
+          variant?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          flag_name?: string
+          enabled?: boolean
+          variant?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
       note_attachments: {
         Row: {
           created_at: string
@@ -158,6 +260,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_beta_invitation: {
+        Args: {
+          invitation_code: string
+        }
+        Returns: Json
+      }
+      is_beta_user: {
+        Args: {
+          user_uuid?: string
+        }
+        Returns: boolean
+      }
       get_notes_unified: {
         Args: {
           group_by_time?: boolean
