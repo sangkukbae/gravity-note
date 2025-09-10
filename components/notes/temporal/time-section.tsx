@@ -85,12 +85,12 @@ export const TimeSection = memo(function TimeSection({
         <NoteItem
           note={noteWithEnhancements}
           isRescuing={isCurrentlyRescuing}
-          showRescueButton={!isFirstInSection} // Don't show rescue for first note in section
+          showRescueButton={true} // Always show action buttons
           showDivider={false} // Handled by container
           showRescuedBadge={
             isFirstSection && isFirstInSection && Boolean(note.is_rescued)
           }
-          {...(onRescue ? { onRescue } : {})}
+          {...(onRescue && !isFirstInSection ? { onRescue } : {})} // Only pass onRescue for non-first notes
         />
       </div>
     )

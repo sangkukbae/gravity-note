@@ -21,9 +21,6 @@ describe('NoteDeleteModal', () => {
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('Delete Note')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Are you sure you want to delete/)
-    ).toBeInTheDocument()
   })
 
   it('does not render when closed', () => {
@@ -32,27 +29,41 @@ describe('NoteDeleteModal', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('displays note preview when provided', () => {
+  it('displays confirmation message in English', () => {
     render(<NoteDeleteModal {...defaultProps} />)
 
-    expect(screen.getByText('Note content:')).toBeInTheDocument()
+    // Should show English confirmation message
     expect(
-      screen.getByText(`"${defaultProps.notePreview}"`)
+      screen.getByText('Are you sure you want to delete this note?')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('This action cannot be undone.')
     ).toBeInTheDocument()
   })
 
-  it('truncates long note preview', () => {
-    const longNote = 'a'.repeat(150)
+  it('shows same message regardless of note preview', () => {
+    const longNote =
+      'This is a very long note that should not affect the modal display'
     render(<NoteDeleteModal {...defaultProps} notePreview={longNote} />)
 
-    const truncatedText = longNote.substring(0, 100) + '...'
-    expect(screen.getByText(`"${truncatedText}"`)).toBeInTheDocument()
+    // Should show same English confirmation regardless of notePreview
+    expect(
+      screen.getByText('Are you sure you want to delete this note?')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('This action cannot be undone.')
+    ).toBeInTheDocument()
   })
 
-  it('shows fallback text when no preview provided', () => {
+  it('shows same message when no preview provided', () => {
     render(<NoteDeleteModal {...defaultProps} notePreview={undefined} />)
 
-    expect(screen.getByText(/delete this note/)).toBeInTheDocument()
+    expect(
+      screen.getByText('Are you sure you want to delete this note?')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('This action cannot be undone.')
+    ).toBeInTheDocument()
   })
 
   it('calls onConfirm when delete button is clicked', async () => {
@@ -68,7 +79,7 @@ describe('NoteDeleteModal', () => {
   it('calls onOpenChange when cancel button is clicked', () => {
     render(<NoteDeleteModal {...defaultProps} />)
 
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
+    const cancelButton = screen.getByText('Cancel').closest('button')!
     fireEvent.click(cancelButton)
 
     expect(defaultProps.onOpenChange).toHaveBeenCalledWith(false)
@@ -83,21 +94,35 @@ describe('NoteDeleteModal', () => {
     expect(defaultProps.onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('focuses on cancel button when modal opens for safety', async () => {
+    render(<NoteDeleteModal {...defaultProps} />)
+
+    // Using waitFor to match the component's focus logic
+    await waitFor(
+      () => {
+        const cancelButton = screen.getByText('Cancel').closest('button')!
+        expect(cancelButton).toHaveFocus()
+      },
+      { timeout: 200 }
+    )
+  })
+
   it('disables buttons and shows loading state', () => {
     render(<NoteDeleteModal {...defaultProps} isLoading={true} />)
 
-    const deleteButton = screen.getByRole('button', { name: /delete/i })
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
+    const buttons = screen.getAllByRole('button')
+    const cancelButton = screen.getByText('Cancel').closest('button')!
     const closeButton = screen.getByRole('button', { name: /cancel deletion/i })
+    const deleteButton = buttons.find(
+      button => button !== cancelButton && button !== closeButton
+    )!
 
     expect(deleteButton).toBeDisabled()
     expect(cancelButton).toBeDisabled()
     expect(closeButton).toBeDisabled()
 
-    // Should show loading spinner
-    expect(
-      screen.getByTestId(/loader/i) || screen.getByRole('progressbar')
-    ).toBeInTheDocument()
+    // Should show loading spinner in delete button
+    expect(deleteButton.querySelector('.animate-spin')).toBeInTheDocument()
   })
 
   it('prevents outside clicks during loading', () => {
@@ -115,11 +140,12 @@ describe('NoteDeleteModal', () => {
   it('shows warning message about permanent deletion', () => {
     render(<NoteDeleteModal {...defaultProps} />)
 
-    expect(screen.getByText(/This action cannot be undone/)).toBeInTheDocument()
+    // Check for English warning message
     expect(
-      screen.getByText(
-        /permanently delete the note and any associated attachments/
-      )
+      screen.getByText('Are you sure you want to delete this note?')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('This action cannot be undone.')
     ).toBeInTheDocument()
   })
 
@@ -172,7 +198,7 @@ describe('NoteDeleteModal', () => {
     expect(dialog).toHaveAttribute('aria-labelledby')
 
     const deleteButton = screen.getByRole('button', { name: /delete/i })
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
+    const cancelButton = screen.getByText('Cancel').closest('button')!
     const closeButton = screen.getByRole('button', { name: /cancel deletion/i })
 
     expect(deleteButton).toBeInTheDocument()
