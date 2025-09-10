@@ -26,6 +26,22 @@ export async function registerServiceWorker(options: SWRegisterOptions = {}) {
       onError,
     } = options
 
+    // Check if service worker file exists before registering
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        const response = await fetch(scriptUrl, { method: 'HEAD' })
+        if (!response.ok) {
+          console.warn(
+            '[SW] Service worker file not found, skipping registration'
+          )
+          return null
+        }
+      } catch (error) {
+        console.warn('[SW] Cannot check service worker file:', error)
+        return null
+      }
+    }
+
     const registration = await navigator.serviceWorker.register(scriptUrl, {
       scope,
       updateViaCache: 'none',

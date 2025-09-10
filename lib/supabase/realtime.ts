@@ -21,6 +21,11 @@ export class RealtimeNotesManager {
   private supabase = createClient()
   private config: RealtimeNotesConfig | null = null
   private isConnected = false
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 5
+  private reconnectDelay = 1000 // Start with 1 second
+  private reconnectTimeout: NodeJS.Timeout | null = null
+  private isReconnecting = false
 
   /**
    * Subscribe to real-time updates for notes belonging to a specific user
@@ -30,8 +35,25 @@ export class RealtimeNotesManager {
 
     return new Promise(resolve => {
       try {
+        // Prevent multiple simultaneous subscriptions
+        if (this.channel && this.isConnected) {
+          console.log(
+            'Real-time already connected, reusing existing connection'
+          )
+          resolve(true)
+          return
+        }
+
         // Clean up any existing subscription
         this.unsubscribe()
+
+        // Reset reconnection state on successful manual subscription
+        this.reconnectAttempts = 0
+        this.isReconnecting = false
+        if (this.reconnectTimeout) {
+          clearTimeout(this.reconnectTimeout)
+          this.reconnectTimeout = null
+        }
 
         // Create a new channel for this user's notes
         this.channel = this.supabase
@@ -83,6 +105,7 @@ export class RealtimeNotesManager {
               console.error('Real-time subscription error:', err)
               config.onError?.(new Error(`Subscription failed: ${err}`))
               this.isConnected = false
+              this.scheduleReconnect()
               resolve(false)
               return
             }
@@ -90,20 +113,27 @@ export class RealtimeNotesManager {
             if (status === 'SUBSCRIBED') {
               console.log('Successfully subscribed to real-time updates')
               this.isConnected = true
+              this.reconnectAttempts = 0 // Reset on successful connection
               resolve(true)
             } else if (status === 'CHANNEL_ERROR') {
               console.error('Real-time channel error')
               config.onError?.(new Error('Channel connection failed'))
               this.isConnected = false
+              this.scheduleReconnect()
               resolve(false)
             } else if (status === 'TIMED_OUT') {
               console.error('Real-time subscription timed out')
               config.onError?.(new Error('Connection timed out'))
               this.isConnected = false
+              this.scheduleReconnect()
               resolve(false)
             } else if (status === 'CLOSED') {
               console.log('Real-time connection closed')
               this.isConnected = false
+              // Don't immediately reconnect on close - might be intentional
+              if (!this.isReconnecting) {
+                this.scheduleReconnect()
+              }
             }
           })
       } catch (error) {
@@ -118,6 +148,13 @@ export class RealtimeNotesManager {
    * Unsubscribe from real-time updates
    */
   unsubscribe(): void {
+    // Cancel any pending reconnection
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
+    this.isReconnecting = false
+
     if (this.channel) {
       console.log('Unsubscribing from real-time updates')
       this.supabase.removeChannel(this.channel)
@@ -145,16 +182,66 @@ export class RealtimeNotesManager {
   }
 
   /**
+   * Schedule a reconnection attempt with exponential backoff
+   */
+  private scheduleReconnect(): void {
+    if (
+      this.isReconnecting ||
+      this.reconnectAttempts >= this.maxReconnectAttempts
+    ) {
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        console.error('[Realtime] Max reconnection attempts reached, giving up')
+        this.config?.onError?.(new Error('Max reconnection attempts reached'))
+      }
+      return
+    }
+
+    this.isReconnecting = true
+    const delay = Math.min(
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts),
+      30000
+    ) // Cap at 30 seconds
+
+    console.log(
+      `[Realtime] Scheduling reconnection attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts} in ${delay}ms`
+    )
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.reconnectAttempts++
+      this.reconnect()
+    }, delay)
+  }
+
+  /**
    * Attempt to reconnect if disconnected
    */
   async reconnect(): Promise<boolean> {
     if (!this.config) {
       console.error('Cannot reconnect: no configuration available')
+      this.isReconnecting = false
       return false
     }
 
-    console.log('Attempting to reconnect to real-time...')
-    return this.subscribe(this.config)
+    console.log(
+      `[Realtime] Attempting to reconnect (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`
+    )
+    const success = await this.subscribe(this.config)
+
+    if (!success && this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.isReconnecting = false
+      this.scheduleReconnect()
+    }
+
+    return success
+  }
+
+  /**
+   * Reset connection state (useful for testing or manual recovery)
+   */
+  reset(): void {
+    this.unsubscribe()
+    this.reconnectAttempts = 0
+    this.isReconnecting = false
   }
 
   /**
@@ -164,7 +251,7 @@ export class RealtimeNotesManager {
     try {
       const supabase = createClient()
       // Simple test to see if real-time is working
-      const testChannel = supabase.channel('test-connectivity')
+      const testChannel = supabase.channel('test-connectivity-' + Date.now())
 
       return new Promise(resolve => {
         const timeout = setTimeout(() => {
