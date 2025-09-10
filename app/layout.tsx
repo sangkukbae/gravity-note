@@ -4,6 +4,11 @@ import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 import { ErrorContextProvider } from '@/contexts/error-context'
 import { AuthProvider } from '@/lib/providers/auth-provider'
 import { QueryProvider } from '@/lib/providers/query-provider'
+import { PostHogAnalyticsProvider } from '@/lib/providers/posthog-provider'
+import { PostHogPageView } from '@/lib/providers/posthog-pageview-tracker'
+import { AnalyticsErrorBoundary } from '@/components/analytics/analytics-error-boundary'
+import { AnalyticsInitializer } from '@/components/analytics/analytics-initializer'
+import { FeatureFlagDebugPanel } from '@/components/feature-flags/debug-panel'
 import { Analytics } from '@vercel/analytics/react'
 import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from 'next-themes'
@@ -147,43 +152,51 @@ export default function RootLayout({
           >
             <QueryProvider>
               <AuthProvider>
-                <ErrorContextProvider
-                  config={{
-                    enableToasts: true,
-                    enableReporting: process.env.NODE_ENV === 'production',
-                    reportingEndpoint: '/api/errors',
-                    enableRetry: true,
-                    enableReload: true,
-                    enableNavigation: true,
-                    context: 'app',
-                    operation: 'general',
-                  }}
-                >
-                  <div id='root'>{children}</div>
-                  {/* Register Service Worker for offline support (guarded by feature flag) */}
-                  <ServiceWorkerRegister />
-                  <Toaster
-                    position='bottom-center'
-                    richColors
-                    // closeButton
-                    expand={false}
-                    offset={24}
-                    toastOptions={{
-                      duration: 4000, // Increased for better UX with error toasts
-                      style: {
-                        background: 'white',
-                        border: '1px solid #e5e5e5',
-                        color: '#171717',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        padding: '12px 16px',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                      },
-                      className:
-                        'dark:!bg-neutral-800 dark:!border-neutral-700 dark:!text-neutral-100',
-                    }}
-                  />
-                </ErrorContextProvider>
+                <AnalyticsErrorBoundary>
+                  <PostHogAnalyticsProvider>
+                    <ErrorContextProvider
+                      config={{
+                        enableToasts: true,
+                        enableReporting: process.env.NODE_ENV === 'production',
+                        reportingEndpoint: '/api/errors',
+                        enableRetry: true,
+                        enableReload: true,
+                        enableNavigation: true,
+                        context: 'app',
+                        operation: 'general',
+                      }}
+                    >
+                      <PostHogPageView />
+                      <AnalyticsInitializer />
+                      <div id='root'>{children}</div>
+                      {/* Register Service Worker for offline support (guarded by feature flag) */}
+                      <ServiceWorkerRegister />
+                      {/* Feature Flag Debug Panel (development only) */}
+                      <FeatureFlagDebugPanel />
+                      <Toaster
+                        position='bottom-center'
+                        richColors
+                        // closeButton
+                        expand={false}
+                        offset={24}
+                        toastOptions={{
+                          duration: 4000, // Increased for better UX with error toasts
+                          style: {
+                            background: 'white',
+                            border: '1px solid #e5e5e5',
+                            color: '#171717',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            padding: '12px 16px',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                          },
+                          className:
+                            'dark:!bg-neutral-800 dark:!border-neutral-700 dark:!text-neutral-100',
+                        }}
+                      />
+                    </ErrorContextProvider>
+                  </PostHogAnalyticsProvider>
+                </AnalyticsErrorBoundary>
               </AuthProvider>
             </QueryProvider>
           </ThemeProvider>
