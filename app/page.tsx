@@ -1,15 +1,49 @@
-import type { Metadata } from 'next'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Gravity Note - Revolutionary Minimalist Note-Taking',
-  description:
-    'Capture your thoughts instantly with our revolutionary minimalist note-taking application. Perfect for quick notes, ideas, and thoughts that matter.',
-}
+import type { Metadata } from 'next'
+import { useCosmicScroll } from '@/hooks/use-cosmic-scroll'
 
 export default function HomePage() {
+  const { gradientCenterY, opacity, scrollProgress } = useCosmicScroll()
+
+  const cosmicStyles = {
+    '--cosmic-center-x': '50%',
+    '--cosmic-center-y': `${gradientCenterY}%`,
+    '--cosmic-opacity': opacity,
+    '--cosmic-glow-x': '50%',
+    '--cosmic-glow-y': `${gradientCenterY + 5}%`,
+    '--cosmic-glow-opacity': opacity * 0.7,
+  } as React.CSSProperties
   return (
-    <main className='min-h-screen bg-white dark:bg-neutral-900'>
-      <div className='container mx-auto px-4 py-16'>
+    <main className='min-h-screen relative overflow-hidden'>
+      {/* Cosmic Gradient Background */}
+      <div
+        className='cosmic-gradient-container cosmic-animated'
+        style={cosmicStyles}
+      >
+        {/* Deep space background */}
+        <div className='cosmic-space-background' />
+
+        {/* Primary cosmic orb */}
+        <div className='cosmic-orb-primary' />
+
+        {/* Secondary glow effect */}
+        <div className='cosmic-glow-secondary' />
+
+        {/* Grain texture overlay for depth */}
+        <div
+          className='absolute inset-0 opacity-[0.015] dark:opacity-[0.01]'
+          style={{
+            backgroundImage: `url(/images/grain.png)`,
+            backgroundRepeat: 'repeat',
+            backgroundSize: '256px 256px',
+            zIndex: 100,
+          }}
+        />
+      </div>
+
+      {/* Content */}
+      <div className='relative z-10 container mx-auto px-4 py-16'>
         <div className='max-w-4xl mx-auto text-center'>
           {/* Hero Section */}
           <div className='mb-16'>
@@ -21,16 +55,10 @@ export default function HomePage() {
               your thoughts instantly and keeps them perfectly organized.
             </p>
             <div className='flex flex-col sm:flex-row gap-4 justify-center items-center'>
-              <a
-                href='/auth/signup'
-                className='bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 text-lg rounded-md font-medium transition-colors'
-              >
+              <a href='/auth/signup' className='btn-landing-primary'>
                 Get Started
               </a>
-              <a
-                href='/auth/signin'
-                className='border border-input bg-background hover:bg-accent hover:text-accent-foreground px-8 py-3 text-lg rounded-md font-medium transition-colors'
-              >
+              <a href='/auth/signin' className='btn-landing-secondary'>
                 Sign In
               </a>
             </div>
@@ -38,7 +66,7 @@ export default function HomePage() {
 
           {/* Features Preview */}
           <div className='grid md:grid-cols-3 gap-8 mb-16'>
-            <div className='card p-6'>
+            <div className='feature-card-modern'>
               <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
                 <svg
                   className='w-6 h-6 text-primary-600'
@@ -63,7 +91,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className='card p-6'>
+            <div className='feature-card-modern'>
               <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
                 <svg
                   className='w-6 h-6 text-primary-600'
@@ -88,7 +116,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className='card p-6'>
+            <div className='feature-card-modern'>
               <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
                 <svg
                   className='w-6 h-6 text-primary-600'
@@ -110,6 +138,66 @@ export default function HomePage() {
               <p className='text-neutral-600 dark:text-neutral-300'>
                 PWA-first design means your notes work everywhere, even offline.
               </p>
+            </div>
+          </div>
+
+          {/* Additional content to make page scrollable for testing */}
+          <div className='mt-32 space-y-16'>
+            <div className='text-center'>
+              <h2 className='text-3xl font-bold text-neutral-900 dark:text-white mb-4'>
+                Experience the Future of Note-Taking
+              </h2>
+              <p className='text-lg text-neutral-600 dark:text-neutral-300 max-w-2xl mx-auto'>
+                Join thousands of users who have transformed their thought
+                capture process with our revolutionary approach.
+              </p>
+            </div>
+
+            <div className='grid md:grid-cols-2 gap-12 items-center'>
+              <div>
+                <h3 className='text-2xl font-semibold text-neutral-900 dark:text-white mb-4'>
+                  Effortless Capture
+                </h3>
+                <p className='text-neutral-600 dark:text-neutral-300 mb-6'>
+                  No folders, no tags, no decisions. Just pure, friction-free
+                  thought capture that lets your ideas flow naturally.
+                </p>
+                <ul className='space-y-3 text-neutral-600 dark:text-neutral-300'>
+                  <li className='flex items-center'>
+                    <span className='w-2 h-2 bg-primary-500 rounded-full mr-3'></span>
+                    Instant note creation in under 100ms
+                  </li>
+                  <li className='flex items-center'>
+                    <span className='w-2 h-2 bg-primary-500 rounded-full mr-3'></span>
+                    Real-time sync across all devices
+                  </li>
+                  <li className='flex items-center'>
+                    <span className='w-2 h-2 bg-primary-500 rounded-full mr-3'></span>
+                    Powerful full-text search
+                  </li>
+                </ul>
+              </div>
+              <div className='bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm border border-white/20 dark:border-neutral-700/30 rounded-xl p-8'>
+                <div className='space-y-4'>
+                  <div className='h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-3/4'></div>
+                  <div className='h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-1/2'></div>
+                  <div className='h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-5/6'></div>
+                  <div className='h-4 bg-primary-200 dark:bg-primary-800 rounded w-2/3'></div>
+                </div>
+              </div>
+            </div>
+
+            <div className='text-center py-16'>
+              <h3 className='text-2xl font-semibold text-neutral-900 dark:text-white mb-4'>
+                Ready to Transform Your Note-Taking?
+              </h3>
+              <p className='text-neutral-600 dark:text-neutral-300 mb-8'>
+                Start capturing your thoughts with unprecedented speed and
+                simplicity.
+              </p>
+              <a href='/auth/signup' className='btn-landing-primary'>
+                Start Your Journey
+              </a>
             </div>
           </div>
         </div>

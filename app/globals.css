@@ -5,44 +5,44 @@
 /* Shadcn/ui CSS Variables - Enhanced Light Theme */
 @layer base {
   :root {
-    /* Base colors remain pure for maximum contrast */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Warmed background colors to complement cosmic gradient */
+    --background: 20 8% 98%;
+    --foreground: 240 15% 9%;
 
-    /* Card colors with subtle warm tone for better visual separation */
-    --card: 0 0% 99.5%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Card colors with subtle warm tone harmonizing with cosmic palette */
+    --card: 25 12% 97%;
+    --card-foreground: 240 15% 9%;
 
-    /* Popover colors */
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    /* Popover colors with cosmic harmony */
+    --popover: 20 8% 98%;
+    --popover-foreground: 240 15% 9%;
 
     /* Primary colors remain unchanged for brand consistency */
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
 
-    /* Enhanced secondary colors with stronger definition */
-    --secondary: 210 40% 93%;
-    --secondary-foreground: 222.2 84% 4.9%;
+    /* Warmed secondary colors complementing orange-purple cosmic tones */
+    --secondary: 25 20% 90%;
+    --secondary-foreground: 240 15% 9%;
 
-    /* Improved muted colors for better hierarchy */
-    --muted: 210 40% 94%;
-    --muted-foreground: 215.4 16.3% 42%;
+    /* Improved muted colors with cosmic warmth */
+    --muted: 30 15% 92%;
+    --muted-foreground: 240 10% 45%;
 
-    /* Enhanced accent with better contrast */
-    --accent: 210 40% 93%;
-    --accent-foreground: 222.2 84% 4.9%;
+    /* Enhanced accent with cosmic harmony */
+    --accent: 25 20% 90%;
+    --accent-foreground: 240 15% 9%;
 
     /* Destructive colors remain unchanged for safety */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    /* Strengthened border colors for better element definition */
-    --border: 214.3 31.8% 88%;
-    --input: 214.3 31.8% 88%;
+    /* Warmed border colors complementing cosmic gradient */
+    --border: 30 20% 85%;
+    --input: 30 20% 85%;
 
-    /* Ring color remains for focus consistency */
-    --ring: 221.2 83.2% 53.3%;
+    /* Enhanced ring color with better cosmic harmony */
+    --ring: 18 85% 55%;
     --radius: 0.5rem;
   }
 
@@ -65,7 +65,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
+    --ring: 18 100% 70%;
   }
 }
 
@@ -428,16 +428,74 @@
   }
 
   .btn-primary {
-    @apply btn bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700;
+    @apply btn bg-primary-500 text-white active:bg-primary-700;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    @apply bg-primary-600;
+    box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.1);
+  }
+
+  /* Modern landing page button styles */
+  .btn-landing-primary {
+    @apply inline-flex items-center justify-center rounded-lg px-8 py-3 text-lg font-medium;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  }
+
+  .btn-landing-primary:hover {
+    background: hsl(var(--primary) / 0.9);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+  }
+
+  .btn-landing-secondary {
+    @apply inline-flex items-center justify-center rounded-lg px-8 py-3 text-lg font-medium;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: hsl(var(--foreground));
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-landing-secondary:hover {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(255, 107, 53, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .dark .btn-landing-secondary {
+    background: rgba(23, 23, 23, 0.8);
+    border-color: rgba(115, 115, 115, 0.5);
+    color: hsl(var(--foreground));
+  }
+
+  .dark .btn-landing-secondary:hover {
+    background: rgba(38, 38, 38, 0.95);
+    border-color: rgba(232, 121, 249, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
 
   /* Enhanced button styles for better light theme visibility */
   .btn-secondary {
-    @apply btn bg-neutral-50 text-neutral-900 border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 active:bg-neutral-200;
+    @apply btn bg-neutral-50 text-neutral-900 border border-neutral-200 active:bg-neutral-200;
+    transition: all 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    @apply bg-neutral-100 border-neutral-300;
   }
 
   .dark .btn-secondary {
-    @apply bg-neutral-800 text-neutral-100 hover:bg-neutral-700 active:bg-neutral-600;
+    @apply bg-neutral-800 text-neutral-100 active:bg-neutral-600;
+    transition: all 0.2s ease;
+  }
+
+  .dark .btn-secondary:hover {
+    @apply bg-neutral-700 border-neutral-600;
   }
 
   .btn-ghost {
@@ -501,11 +559,36 @@
   }
 
   .note-card-enhanced:hover {
-    box-shadow:
-      0 10px 32px -4px rgba(0, 0, 0, 0.18),
-      0 4px 16px -2px rgba(0, 0, 0, 0.08);
-    @apply border-neutral-400/70 bg-neutral-50/50;
-    transform: translateY(-2px);
+    background: hsl(0, 0%, 96%);
+    border-color: rgba(255, 107, 53, 0.2);
+    box-shadow: 0 0 0 1px rgba(255, 107, 53, 0.05);
+    transition: all 0.2s ease;
+  }
+
+  /* Modern landing page feature card styles */
+  .feature-card-modern {
+    @apply rounded-xl p-6 backdrop-blur-sm border transition-all duration-200;
+    background: rgba(255, 255, 255, 0.7);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .feature-card-modern:hover {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(255, 107, 53, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+
+  .dark .feature-card-modern {
+    background: rgba(23, 23, 23, 0.7);
+    border-color: rgba(115, 115, 115, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .dark .feature-card-modern:hover {
+    background: rgba(38, 38, 38, 0.85);
+    border-color: rgba(232, 121, 249, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
 
   .dark .note-card-enhanced {
@@ -514,8 +597,10 @@
   }
 
   .dark .note-card-enhanced:hover {
-    @apply bg-neutral-900 border-neutral-600/80;
-    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+    background: hsl(0, 0%, 12%);
+    border-color: rgba(232, 121, 249, 0.25);
+    box-shadow: 0 0 0 1px rgba(232, 121, 249, 0.1);
+    transition: all 0.2s ease;
   }
 
   /* Enhanced card separation background with subtle gradient - Light Theme Improved */
@@ -775,6 +860,91 @@
   }
 }
 
+/* Cosmic gradient utilities for landing page */
+.cosmic-gradient-container {
+  @apply absolute inset-0;
+}
+
+.cosmic-orb-primary {
+  @apply absolute inset-0;
+  background: radial-gradient(
+    circle at var(--cosmic-center-x, 50%) var(--cosmic-center-y, 120%),
+    #ff6b35 0%,
+    #ff8e53 25%,
+    #e879f9 50%,
+    #6366f1 75%,
+    transparent 100%
+  );
+  filter: blur(1px);
+  transition: opacity 0.3s ease-out;
+  opacity: var(--cosmic-opacity, 0.8);
+}
+
+.cosmic-glow-secondary {
+  @apply absolute inset-0;
+  background: radial-gradient(
+    ellipse at var(--cosmic-glow-x, 50%) var(--cosmic-glow-y, 125%),
+    rgba(255, 107, 53, 0.4) 0%,
+    rgba(255, 142, 83, 0.3) 30%,
+    rgba(232, 121, 249, 0.2) 60%,
+    transparent 100%
+  );
+  filter: blur(2px);
+  transition: opacity 0.3s ease-out;
+  opacity: var(--cosmic-glow-opacity, 0.6);
+}
+
+.cosmic-space-background {
+  @apply absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950;
+}
+
+/* Dark theme cosmic adjustments */
+.dark .cosmic-space-background {
+  @apply from-slate-950 via-indigo-950 to-black;
+}
+
+.dark .cosmic-orb-primary {
+  background: radial-gradient(
+    circle at var(--cosmic-center-x, 50%) var(--cosmic-center-y, 120%),
+    #ff6b35 0%,
+    #ff8e53 20%,
+    #e879f9 45%,
+    #6366f1 70%,
+    transparent 100%
+  );
+  filter: blur(0.5px);
+  opacity: var(--cosmic-opacity, 0.9);
+}
+
+.dark .cosmic-glow-secondary {
+  background: radial-gradient(
+    ellipse at var(--cosmic-glow-x, 50%) var(--cosmic-glow-y, 125%),
+    rgba(255, 107, 53, 0.6) 0%,
+    rgba(255, 142, 83, 0.4) 25%,
+    rgba(232, 121, 249, 0.3) 55%,
+    transparent 100%
+  );
+  filter: blur(3px);
+  opacity: var(--cosmic-glow-opacity, 0.8);
+}
+
+/* Optional subtle animation for cosmic effect */
+@keyframes cosmicPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+.cosmic-animated .cosmic-glow-secondary {
+  animation: cosmicPulse 8s ease-in-out infinite;
+}
+
 /* Reduce motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -783,5 +953,9 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .cosmic-animated .cosmic-glow-secondary {
+    animation: none !important;
   }
 }

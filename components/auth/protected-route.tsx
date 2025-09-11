@@ -22,6 +22,34 @@ export function ProtectedRoute({
     }
   }, [user, loading, initialized, router, redirectTo])
 
+  // Security: Prevent BFCache and handle page visibility for auth verification
+  useEffect(() => {
+    // Prevent BFCache to ensure auth checks run on back navigation
+    const preventBFCache = () => {
+      // This event ensures the page is removed from BFCache
+    }
+
+    // Re-verify auth when page becomes visible (e.g., back navigation)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && initialized && !loading) {
+        // Force re-evaluation of auth state when page becomes visible
+        if (!user) {
+          router.push(redirectTo)
+        }
+      }
+    }
+
+    // Set up event listeners
+    window.addEventListener('beforeunload', preventBFCache)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('beforeunload', preventBFCache)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [user, loading, initialized, router, redirectTo])
+
   // Show loading state while checking auth
   if (!initialized || loading) {
     return (

@@ -22,10 +22,19 @@ async function checkPostHogHealth(): Promise<{
   available: boolean
   error?: string
 }> {
+  // In development, skip health check if analytics is explicitly disabled
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_ENABLE_ANALYTICS !== 'true'
+  ) {
+    return { available: false, error: 'disabled_in_dev' }
+  }
+
   try {
-    // Test with a simple fetch to PostHog endpoints
+    // Test with a simple fetch to PostHog endpoints with shorter timeout in dev
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3000)
+    const timeout = process.env.NODE_ENV === 'development' ? 1500 : 3000
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     const response = await fetch('https://us.i.posthog.com/health', {
       method: 'GET',
@@ -73,12 +82,23 @@ export function PostHogAnalyticsProvider({
       }
 
       // Only initialize on client side and if PostHog key is available
+      // Also check if analytics is enabled in development
+      const enableAnalytics =
+        process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' ||
+        process.env.NODE_ENV === 'production'
+
       if (
         typeof window === 'undefined' ||
         !process.env.NEXT_PUBLIC_POSTHOG_KEY ||
-        process.env.NEXT_PUBLIC_POSTHOG_KEY === 'phc_test_key_placeholder'
+        process.env.NEXT_PUBLIC_POSTHOG_KEY === 'phc_test_key_placeholder' ||
+        !enableAnalytics
       ) {
         setHealthCheckDone(true)
+
+        if (!enableAnalytics && process.env.NODE_ENV === 'development') {
+          console.log('[PostHog] Analytics disabled in development environment')
+        }
+
         return
       }
 
@@ -98,11 +118,21 @@ export function PostHogAnalyticsProvider({
         })
 
         if (!healthStatus.available) {
-          console.warn('[PostHog] Health check failed:', healthStatus.error)
-          if (healthStatus.error === 'blocked') {
-            console.warn(
-              '[PostHog] Detected content blocker - PostHog analytics disabled'
+          if (healthStatus.error === 'disabled_in_dev') {
+            // Silent skip in development when analytics is disabled
+            return
+          }
+
+          if (process.env.NODE_ENV === 'development') {
+            // More concise logging in development
+            console.log(
+              '[PostHog] Analytics unavailable:',
+              healthStatus.error === 'blocked'
+                ? 'content blocker detected'
+                : 'network/timeout'
             )
+          } else {
+            console.warn('[PostHog] Health check failed:', healthStatus.error)
           }
           return
         }
@@ -140,8 +170,11 @@ export function PostHogAnalyticsProvider({
               lastError: null,
             })
 
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[PostHog] Successfully initialized')
+            if (
+              process.env.NODE_ENV === 'development' &&
+              process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true'
+            ) {
+              console.log('[PostHog] Analytics initialized')
               instance.debug(
                 process.env.NEXT_PUBLIC_POSTHOG_ENVIRONMENT === 'development'
               )
