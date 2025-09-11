@@ -4,7 +4,20 @@ import type { Metadata } from 'next'
 import { useCosmicScroll } from '@/hooks/use-cosmic-scroll'
 
 export default function HomePage() {
-  const { gradientCenterY, opacity, scrollProgress } = useCosmicScroll()
+  const { gradientCenterY, opacity, scrollProgress, scrollY } =
+    useCosmicScroll()
+
+  // Dynamic header styling based on scroll position
+  const scrollThreshold = 20 // Start transition early for smoother effect
+  const transitionRange = 80 // Distance over which transition occurs
+
+  // Calculate opacity for smooth transition (0 to 1 over transition range)
+  const headerOpacity =
+    scrollY <= scrollThreshold
+      ? 0
+      : Math.min((scrollY - scrollThreshold) / transitionRange, 1)
+
+  const isScrolled = scrollY > scrollThreshold
 
   const cosmicStyles = {
     '--cosmic-center-x': '50%',
@@ -14,8 +27,62 @@ export default function HomePage() {
     '--cosmic-glow-y': `${gradientCenterY + 5}%`,
     '--cosmic-glow-opacity': opacity * 0.7,
   } as React.CSSProperties
+
+  // Dynamic header classes - always include base transition
+  const headerClasses = `
+    header-glass-dynamic transition-all duration-500 ease-out
+    border-b
+    ${
+      isScrolled ? 'border-white/20 dark:border-white/10' : 'border-transparent'
+    }
+  `.trim()
+
   return (
     <main className='min-h-screen relative overflow-hidden'>
+      {/* Navigation Header */}
+      <header className='fixed top-0 left-0 right-0 z-50'>
+        <nav
+          className={headerClasses}
+          style={
+            {
+              backdropFilter: `blur(${headerOpacity * 12}px)`,
+              WebkitBackdropFilter: `blur(${headerOpacity * 12}px)`, // Safari support
+              // Use CSS custom properties for dark mode compatibility
+              '--header-bg-opacity': headerOpacity,
+            } as React.CSSProperties
+          }
+        >
+          <div className='container mx-auto px-4 sm:px-6 lg:px-8'>
+            <div className='flex items-center justify-between h-14 sm:h-16'>
+              {/* Logo */}
+              <div className='flex-shrink-0'>
+                <a href='/' className='group'>
+                  <h1 className='text-lg sm:text-xl font-semibold transition-all duration-200 group-hover:scale-105'>
+                    <span className='text-gradient'>Gravity Note</span>
+                  </h1>
+                </a>
+              </div>
+
+              {/* Navigation Buttons */}
+              <div className='flex items-center space-x-2 sm:space-x-3'>
+                <a
+                  href='/auth/signin'
+                  className='inline-flex items-center justify-center px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10 rounded-md transition-all duration-200'
+                >
+                  Log in
+                </a>
+                <a
+                  href='/auth/signup'
+                  className='inline-flex items-center justify-center px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-all duration-200 shadow-sm hover:shadow-md border border-primary-500/20'
+                >
+                  Sign up
+                </a>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </header>
+
       {/* Cosmic Gradient Background */}
       <div
         className='cosmic-gradient-container cosmic-animated'
@@ -36,14 +103,16 @@ export default function HomePage() {
           style={{
             backgroundImage: `url(/images/grain.png)`,
             backgroundRepeat: 'repeat',
-            backgroundSize: '256px 256px',
-            zIndex: 100,
+            backgroundSize: '100px 100px',
+            backgroundPosition: 'left top',
+            backgroundBlendMode: 'overlay',
+            mixBlendMode: 'overlay',
           }}
         />
       </div>
 
       {/* Content */}
-      <div className='relative z-10 container mx-auto px-4 py-16'>
+      <div className='relative z-10 container mx-auto px-4 pt-28 sm:pt-32 pb-16'>
         <div className='max-w-4xl mx-auto text-center'>
           {/* Hero Section */}
           <div className='mb-16'>
