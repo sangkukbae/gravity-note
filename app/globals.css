@@ -162,6 +162,20 @@
     @apply bg-black/10 backdrop-blur-md border border-white/10;
   }
 
+  /* Dynamic header glass effect with custom opacity */
+  .header-glass-dynamic {
+    background-color: rgba(
+      255,
+      255,
+      255,
+      calc(0.1 * var(--header-bg-opacity, 0))
+    );
+  }
+
+  .dark .header-glass-dynamic {
+    background-color: rgba(0, 0, 0, calc(0.1 * var(--header-bg-opacity, 0)));
+  }
+
   /* Focus ring for interactive elements */
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
