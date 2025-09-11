@@ -2,10 +2,28 @@ const { withSentryConfig } = require('@sentry/nextjs')
 
 const withPWA = require('next-pwa')({
   dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
+  disable:
+    process.env.NODE_ENV === 'development' ||
+    process.env.NEXT_PUBLIC_ENABLE_PWA !== 'true',
   register: true,
   skipWaiting: true,
   customWorkerDir: 'workers',
+  fallbacks: {
+    document: '/offline', // fallback for document (page) requests
+  },
+  // Exclude problematic files from precaching
+  exclude: [
+    /app-build-manifest\.json$/,
+    /build-manifest\.json$/,
+    /chunks\/.*\.json$/,
+    /middleware-manifest\.json$/,
+    // Additional Next.js internal files that may cause issues
+    /pages-manifest\.json$/,
+    /prerender-manifest\.json$/,
+    /routes-manifest\.json$/,
+    /next-server\.js\.map$/,
+    /_next\/static\/.*\.map$/,
+  ],
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
