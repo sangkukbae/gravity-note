@@ -76,10 +76,34 @@ export const useAuthStore = create<AuthStore>()(
 
           try {
             await supabase.auth.signOut()
-            set({ user: null, session: null })
+
+            // Clear state and localStorage
+            set({ user: null, session: null, loading: false })
+
+            // Force clear localStorage to ensure complete cleanup
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('auth-store')
+
+              // Clear session storage as well for extra security
+              sessionStorage.removeItem('auth-store')
+
+              // Security: Clear browser history to prevent back navigation to protected pages
+              // Replace current history entry instead of adding new one
+              window.history.replaceState(null, '', '/auth/signin')
+
+              // Clear forward history by pushing a dummy state and then going back
+              if (window.history.length > 1) {
+                window.history.pushState(null, '', '/auth/signin')
+                window.history.back()
+              }
+            }
+
+            // Force redirect to sign-in page
+            if (typeof window !== 'undefined') {
+              window.location.href = '/auth/signin'
+            }
           } catch (error) {
             console.error('Error signing out:', error)
-          } finally {
             set({ loading: false })
           }
         },
