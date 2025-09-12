@@ -117,11 +117,13 @@ export default function HomePage() {
           {/* Hero Section */}
           <div className='mb-16'>
             <h1 className='text-4xl md:text-6xl font-bold text-neutral-900 dark:text-white mb-6'>
-              <span className='text-gradient'>Gravity Note</span>
+              <span className='text-gradient'>
+                The revolutionary minimalist note-taking app
+              </span>
             </h1>
             <p className='text-xl md:text-2xl text-neutral-600 dark:text-neutral-300 mb-8 max-w-3xl mx-auto'>
-              A revolutionary minimalist note-taking application that captures
-              your thoughts instantly and keeps them perfectly organized.
+              Captures your thoughts instantly and keeps them perfectly
+              organized
             </p>
             <div className='flex flex-col sm:flex-row gap-4 justify-center items-center'>
               <a href='/auth/signup' className='btn-landing-primary'>
