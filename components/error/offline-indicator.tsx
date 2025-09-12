@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { useOfflineStatus } from '@/hooks/use-offline-status'
+import { useNetworkStatus } from '@/hooks/use-network-status'
 import { isOfflineFeaturesEnabled } from '@/lib/config'
 
 /**
@@ -56,7 +56,11 @@ interface OfflineIndicatorProps {
  * Mock sync status for demonstration (replace with real implementation)
  */
 function useSyncStatus(): SyncStatus {
-  const { isOnline, effectiveOnline } = useOfflineStatus()
+  const { isOnline, effectiveOnline } = useNetworkStatus({
+    pingUrl: '/manifest.json',
+    pingIntervalMs: 30000,
+    enableQualityMonitoring: false,
+  })
   const [status, setStatus] = useState<OfflineStatus>(OfflineStatus.ONLINE)
   const [pendingChanges, setPendingChanges] = useState(0)
   const [lastSync, setLastSync] = useState<Date | undefined>(new Date())
@@ -224,7 +228,11 @@ export function EnhancedOfflineIndicator({
   onViewOfflineData,
   compact = false,
 }: OfflineIndicatorProps) {
-  const { isOnline, effectiveOnline } = useOfflineStatus()
+  const { isOnline, effectiveOnline } = useNetworkStatus({
+    pingUrl: '/manifest.json',
+    pingIntervalMs: 30000,
+    enableQualityMonitoring: false,
+  })
   const syncStatus = useSyncStatus()
   const [expanded, setExpanded] = useState(false)
 

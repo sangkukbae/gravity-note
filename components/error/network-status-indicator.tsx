@@ -10,7 +10,7 @@ import {
   Signal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useOfflineStatus } from '@/hooks/use-offline-status'
+import { useNetworkStatus } from '@/hooks/use-network-status'
 
 /**
  * Network connection quality levels
@@ -75,8 +75,12 @@ function getNetworkQuality(): NetworkQuality {
 /**
  * Custom hook for enhanced network status monitoring
  */
-function useNetworkStatus(): NetworkStatus {
-  const { isOnline, effectiveOnline } = useOfflineStatus()
+function useEnhancedNetworkStatus(): NetworkStatus {
+  const { isOnline, effectiveOnline } = useNetworkStatus({
+    pingUrl: '/manifest.json',
+    pingIntervalMs: 30000,
+    enableQualityMonitoring: false,
+  })
   const [quality, setQuality] = useState(NetworkQuality.GOOD)
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [reconnecting, setReconnecting] = useState(false)
@@ -295,7 +299,7 @@ export function NetworkStatusIndicator({
   showQuality = false,
   onClick,
 }: NetworkStatusIndicatorProps) {
-  const status = useNetworkStatus()
+  const status = useEnhancedNetworkStatus()
   const styles = getNetworkStatusStyles(status)
   const StatusIcon = getNetworkIcon(status)
   const statusText = getStatusText(status)

@@ -267,32 +267,55 @@ export function NoteAttachments({
     } finally {
       setIsLoading(false)
     }
-  }, [noteId, max, createSignedUrlWithCache, debugItems])
+  }, [
+    noteId,
+    max,
+    variant,
+    createSignedUrlWithCache,
+    getSignedUrlForWidth,
+    debugItems,
+  ])
 
-  // Initial load and realtime subscription for new/updated attachments
+  // Initial load when note or debug mode changes
   useEffect(() => {
-    let active = true
     load()
+  }, [load])
 
-    // Enhanced retry logic with exponential backoff for better reliability
+  // Retry cycle when a load fails (exponential backoff)
+  useEffect(() => {
+    if (!hasError) return
+
+    let active = true
     retriesRef.current = 0
-    const retryDelays = [500, 1000, 2000, 3000, 5000, 8000] // Exponential backoff
+    const retryDelays = [500, 1000, 2000, 3000, 5000, 8000]
+    let retryTimeoutId: NodeJS.Timeout | null = null
 
-    const scheduleRetry = (retryIndex: number) => {
-      if (!active || retryIndex >= retryDelays.length) return
+    const scheduleNextRetry = () => {
+      if (!active || retriesRef.current >= retryDelays.length) return
 
-      const delay = retryDelays[retryIndex]
-      setTimeout(() => {
-        if (active) {
-          retriesRef.current = retryIndex + 1
-          load()
-          scheduleRetry(retryIndex + 1)
+      const delay = retryDelays[retriesRef.current]
+      retryTimeoutId = setTimeout(() => {
+        if (!active) return
+        retriesRef.current += 1
+        load()
+        // If still failing, schedule next retry; cleanup will cancel when hasError flips
+        if (hasError && active && retriesRef.current < retryDelays.length) {
+          scheduleNextRetry()
         }
       }, delay)
     }
 
-    scheduleRetry(0)
+    scheduleNextRetry()
 
+    return () => {
+      active = false
+      if (retryTimeoutId) clearTimeout(retryTimeoutId)
+    }
+  }, [hasError, load])
+
+  // Realtime subscription for attachment changes
+  useEffect(() => {
+    let active = true
     let channel: any = null
     if (!debugItems) {
       channel = supabaseRef.current

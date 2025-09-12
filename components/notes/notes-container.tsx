@@ -21,7 +21,7 @@ import { GroupedNoteList } from './temporal'
 import { cn } from '@/lib/utils'
 import type { GroupedNotesResponse, TimeGroup } from '@/types/temporal'
 import { shouldHandleSearchShortcut } from '@/lib/utils/keyboard'
-import { useOfflineStatus } from '@/hooks/use-offline-status'
+import { useNetworkStatus } from '@/hooks/use-network-status'
 import { LocalSaveIndicator } from '@/components/ui/local-save-indicator'
 import { toast } from 'sonner'
 import { useSearchState } from '@/hooks/use-search-state'
@@ -69,7 +69,11 @@ export const NotesContainer = forwardRef<
     },
     ref
   ) => {
-    const offline = useOfflineStatus()
+    const networkStatus = useNetworkStatus({
+      pingUrl: '/manifest.json',
+      pingIntervalMs: 30000,
+      enableQualityMonitoring: false,
+    })
     const [notes, setNotes] = useState<Note[]>(initialNotes)
     const [isCreating, setIsCreating] = useState(false)
     const [isRescuing, setIsRescuing] = useState(false)
@@ -471,7 +475,7 @@ export const NotesContainer = forwardRef<
               />
 
               {/* Offline: Saved locally indicator */}
-              {!offline.effectiveOnline && (
+              {!networkStatus.effectiveOnline && (
                 <div className='flex justify-between items-center'>
                   <LocalSaveIndicator />
                 </div>
@@ -489,7 +493,7 @@ export const NotesContainer = forwardRef<
                     isOpen={isSearchOpen}
                     onToggle={() => setIsSearchOpen(!isSearchOpen)}
                     placeholder='Search all your thoughts...'
-                    disabled={!offline.effectiveOnline}
+                    disabled={!networkStatus.effectiveOnline}
                     searchState={searchStateValue}
                   />
                 </div>

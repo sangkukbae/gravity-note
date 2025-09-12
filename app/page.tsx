@@ -118,25 +118,80 @@ export default function HomePage() {
           <div className='mb-16'>
             <h1 className='text-4xl md:text-6xl font-bold text-neutral-900 dark:text-white mb-6'>
               <span className='text-gradient'>
-                The revolutionary minimalist note-taking app
+                Your thoughts deserve gravity, not folders
               </span>
             </h1>
-            <p className='text-xl md:text-2xl text-neutral-600 dark:text-neutral-300 mb-8 max-w-3xl mx-auto'>
-              Captures your thoughts instantly and keeps them perfectly
-              organized
+            <p className='text-xl md:text-2xl text-neutral-600 dark:text-neutral-300 mb-6 max-w-3xl mx-auto'>
+              Inspired by Andrej Karpathy&apos;s append-and-review methodology.
+            </p>
+            <p className='text-lg md:text-xl text-neutral-500 dark:text-neutral-400 mb-8 max-w-2xl mx-auto'>
+              One infinite stream. Zero organization overhead. Pure thought
+              capture.
             </p>
             <div className='flex flex-col sm:flex-row gap-4 justify-center items-center'>
               <a href='/auth/signup' className='btn-landing-primary'>
-                Get Started
+                Start Your Stream
               </a>
-              <a href='/auth/signin' className='btn-landing-secondary'>
-                Sign In
+              <a href='#philosophy' className='btn-landing-secondary'>
+                See the Philosophy
               </a>
             </div>
           </div>
 
-          {/* Features Preview */}
+          {/* Philosophy Benefits */}
           <div className='grid md:grid-cols-3 gap-8 mb-16'>
+            <div className='feature-card-modern'>
+              <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
+                <svg
+                  className='w-6 h-6 text-primary-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4'
+                  />
+                </svg>
+              </div>
+              <h3 className='text-xl font-semibold text-neutral-900 dark:text-white mb-2'>
+                One Stream, Infinite Clarity
+              </h3>
+              <p className='text-neutral-600 dark:text-neutral-300'>
+                No folders to navigate. No tags to manage. Just one continuous
+                stream where every thought lands instantly. Your mind stays in
+                flow state.
+              </p>
+            </div>
+
+            <div className='feature-card-modern'>
+              <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
+                <svg
+                  className='w-6 h-6 text-primary-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M7 11l5-5m0 0l5 5m-5-5v12'
+                  />
+                </svg>
+              </div>
+              <h3 className='text-xl font-semibold text-neutral-900 dark:text-white mb-2'>
+                Natural Gravity Review
+              </h3>
+              <p className='text-neutral-600 dark:text-neutral-300'>
+                Important ideas naturally rise through periodic review. Rescue
+                valuable thoughts back to the surface. Let irrelevant notes sink
+                naturally.
+              </p>
+            </div>
+
             <div className='feature-card-modern'>
               <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
                 <svg
@@ -154,60 +209,129 @@ export default function HomePage() {
                 </svg>
               </div>
               <h3 className='text-xl font-semibold text-neutral-900 dark:text-white mb-2'>
-                Instant Capture
+                100ms to Capture
               </h3>
               <p className='text-neutral-600 dark:text-neutral-300'>
-                Capture your thoughts in under 100ms. No friction, no delay,
-                just pure speed.
+                From thought to saved in under 100ms. No decisions, no friction.
+                Open, type, done. Your working memory stays free for thinking.
+              </p>
+            </div>
+          </div>
+
+          {/* The Methodology Section */}
+          <div id='philosophy' className='mt-32 mb-16'>
+            <div className='text-center mb-12'>
+              <h2 className='text-3xl font-bold text-neutral-900 dark:text-white mb-4'>
+                Why Gravity Over Organization?
+              </h2>
+              <p className='text-lg text-neutral-600 dark:text-neutral-300 max-w-2xl mx-auto'>
+                Your brain doesn&apos;t organize thoughts in folders. Neither
+                should your notes.
               </p>
             </div>
 
-            <div className='feature-card-modern'>
-              <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
-                <svg
-                  className='w-6 h-6 text-primary-600'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
-                  />
-                </svg>
+            <div className='grid md:grid-cols-3 gap-8 mb-16'>
+              {/* Traditional Apps Problem */}
+              <div className='text-center p-6 bg-white/50 dark:bg-neutral-800/30 backdrop-blur-sm border border-white/20 dark:border-neutral-700/30 rounded-xl'>
+                <div className='w-12 h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
+                  <svg
+                    className='w-6 h-6 text-red-600'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z'
+                    />
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M8 1v6m8-6v6'
+                    />
+                  </svg>
+                </div>
+                <h3 className='text-lg font-semibold text-neutral-900 dark:text-white mb-3'>
+                  Traditional Apps Force Structure
+                </h3>
+                <ul className='text-sm text-neutral-600 dark:text-neutral-300 space-y-2 text-left'>
+                  <li>• Folders interrupt thought flow</li>
+                  <li>• Tags create decision fatigue</li>
+                  <li>• Categories become mental prisons</li>
+                  <li>• Organization becomes procrastination</li>
+                </ul>
               </div>
-              <h3 className='text-xl font-semibold text-neutral-900 dark:text-white mb-2'>
-                Smart Search
-              </h3>
-              <p className='text-neutral-600 dark:text-neutral-300'>
-                Find any note instantly with our powerful search that
-                understands context.
-              </p>
+
+              {/* Gravity Note Solution */}
+              <div className='text-center p-6 bg-primary-50/50 dark:bg-neutral-800/40 backdrop-blur-sm border border-primary-200/20 dark:border-primary-800/30 rounded-xl'>
+                <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
+                  <svg
+                    className='w-6 h-6 text-primary-600'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z'
+                    />
+                  </svg>
+                </div>
+                <h3 className='text-lg font-semibold text-neutral-900 dark:text-white mb-3'>
+                  Gravity Note Uses Time
+                </h3>
+                <ul className='text-sm text-neutral-600 dark:text-neutral-300 space-y-2 text-left'>
+                  <li>• Recent thoughts stay visible</li>
+                  <li>• Important ideas get rescued up</li>
+                  <li>• Irrelevant notes naturally sink</li>
+                  <li>• Time provides natural organization</li>
+                </ul>
+              </div>
+
+              {/* Brain Science */}
+              <div className='text-center p-6 bg-green-50/50 dark:bg-neutral-800/30 backdrop-blur-sm border border-green-200/20 dark:border-green-800/30 rounded-xl'>
+                <div className='w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
+                  <svg
+                    className='w-6 h-6 text-green-600'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M9.663 17h4.673M12 3v1m6.364-.707l-.707.707M21 12h-1M17.657 17.657l-.707-.707M12 21v-1m-6.364.707l.707-.707M3 12h1M6.343 6.343l.707.707'
+                    />
+                  </svg>
+                </div>
+                <h3 className='text-lg font-semibold text-neutral-900 dark:text-white mb-3'>
+                  Your Brain Works This Way
+                </h3>
+                <ul className='text-sm text-neutral-600 dark:text-neutral-300 space-y-2 text-left'>
+                  <li>• Memory naturally fades over time</li>
+                  <li>• Repetition strengthens recall</li>
+                  <li>• Attention creates importance</li>
+                  <li>• Context emerges through patterns</li>
+                </ul>
+              </div>
             </div>
 
-            <div className='feature-card-modern'>
-              <div className='w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center mb-4 mx-auto'>
-                <svg
-                  className='w-6 h-6 text-primary-600'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'
-                  />
-                </svg>
-              </div>
-              <h3 className='text-xl font-semibold text-neutral-900 dark:text-white mb-2'>
-                Universal Access
-              </h3>
-              <p className='text-neutral-600 dark:text-neutral-300'>
-                PWA-first design means your notes work everywhere, even offline.
+            {/* Quote from Karpathy */}
+            <div className='bg-white/30 dark:bg-neutral-800/50 backdrop-blur-sm border border-white/20 dark:border-neutral-700/30 rounded-xl p-8 max-w-3xl mx-auto'>
+              <blockquote className='text-lg italic text-neutral-700 dark:text-neutral-300 text-center mb-4'>
+                &quot;I have a single .txt file on all my devices that is always
+                available where I jot down random ideas. No structure, no
+                organization, just pure append-and-review.&quot;
+              </blockquote>
+              <p className='text-sm text-neutral-500 dark:text-neutral-400 text-center'>
+                — Andrej Karpathy, AI Researcher & Former Director of AI at
+                Tesla
               </p>
             </div>
           </div>
@@ -258,17 +382,111 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* Trust & Transparency Section */}
+            <div className='bg-white/50 dark:bg-neutral-800/40 backdrop-blur-sm border border-white/20 dark:border-neutral-700/30 rounded-xl p-8 mb-16'>
+              <div className='text-center mb-8'>
+                <h3 className='text-2xl font-semibold text-neutral-900 dark:text-white mb-4'>
+                  Your Data, Your Control
+                </h3>
+                <p className='text-neutral-600 dark:text-neutral-300'>
+                  Radical simplicity shouldn&apos;t mean giving up control.
+                </p>
+              </div>
+
+              <div className='grid md:grid-cols-3 gap-6'>
+                <div className='text-center'>
+                  <div className='w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-3 mx-auto'>
+                    <svg
+                      className='w-5 h-5 text-green-600'
+                      fill='none'
+                      stroke='currentColor'
+                      viewBox='0 0 24 24'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={2}
+                        d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'
+                      />
+                    </svg>
+                  </div>
+                  <h4 className='font-semibold text-neutral-900 dark:text-white mb-2'>
+                    Private by Default
+                  </h4>
+                  <p className='text-sm text-neutral-600 dark:text-neutral-300'>
+                    Your notes are encrypted and only you can access them. No AI
+                    training, no data mining.
+                  </p>
+                </div>
+
+                <div className='text-center'>
+                  <div className='w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-3 mx-auto'>
+                    <svg
+                      className='w-5 h-5 text-blue-600'
+                      fill='none'
+                      stroke='currentColor'
+                      viewBox='0 0 24 24'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={2}
+                        d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10'
+                      />
+                    </svg>
+                  </div>
+                  <h4 className='font-semibold text-neutral-900 dark:text-white mb-2'>
+                    Export Anytime
+                  </h4>
+                  <p className='text-sm text-neutral-600 dark:text-neutral-300'>
+                    One-click export to plain text. No lock-in, no proprietary
+                    formats. Your data is portable.
+                  </p>
+                </div>
+
+                <div className='text-center'>
+                  <div className='w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-3 mx-auto'>
+                    <svg
+                      className='w-5 h-5 text-purple-600'
+                      fill='none'
+                      stroke='currentColor'
+                      viewBox='0 0 24 24'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={2}
+                        d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                      />
+                    </svg>
+                  </div>
+                  <h4 className='font-semibold text-neutral-900 dark:text-white mb-2'>
+                    Try Risk-Free
+                  </h4>
+                  <p className='text-sm text-neutral-600 dark:text-neutral-300'>
+                    30-day trial with full functionality. Cancel anytime with
+                    complete data export.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className='text-center py-16'>
               <h3 className='text-2xl font-semibold text-neutral-900 dark:text-white mb-4'>
-                Ready to Transform Your Note-Taking?
+                Ready to Let Your Thoughts Flow?
               </h3>
               <p className='text-neutral-600 dark:text-neutral-300 mb-8'>
-                Start capturing your thoughts with unprecedented speed and
-                simplicity.
+                Join the movement toward friction-free thinking. No folders, no
+                tags, just pure thought capture.
               </p>
-              <a href='/auth/signup' className='btn-landing-primary'>
-                Start Your Journey
-              </a>
+              <div className='flex flex-col sm:flex-row gap-4 justify-center items-center'>
+                <a href='/auth/signup' className='btn-landing-primary'>
+                  Start Your Stream
+                </a>
+                <a href='/auth/signin' className='btn-landing-secondary'>
+                  Watch Demo
+                </a>
+              </div>
             </div>
           </div>
         </div>
