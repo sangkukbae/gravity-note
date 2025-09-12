@@ -9,7 +9,7 @@ import { TemporalCommandPalette } from '@/components/search/temporal-command-pal
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { OfflineStatusIndicator } from '@/components/ui/offline-status-indicator'
 import { useNotesMutations } from '@/hooks/use-notes-mutations'
-import { useOfflineStatus } from '@/hooks/use-offline-status'
+import { useNetworkStatus } from '@/hooks/use-network-status'
 import { useNotesRealtime } from '@/hooks/use-notes-realtime'
 import { useUnifiedSearch } from '@/hooks/use-unified-search'
 import type { Note } from '@/lib/supabase/realtime'
@@ -85,12 +85,16 @@ export default function DashboardPage() {
     flushOfflineOutbox,
   } = useNotesMutations()
 
-  const offline = useOfflineStatus()
+  const networkStatus = useNetworkStatus({
+    pingUrl: '/manifest.json',
+    pingIntervalMs: 30000,
+    enableQualityMonitoring: false,
+  })
 
   // Best-effort: register Background Sync
   useEffect(() => {
-    offline.registerBackgroundSync?.('gravity-sync')
-  }, [offline])
+    networkStatus.registerBackgroundSync?.('gravity-sync')
+  }, [networkStatus])
 
   // Keep header pending count up-to-date
   useEffect(() => {
@@ -275,7 +279,7 @@ export default function DashboardPage() {
   // Flush offline outbox on reconnection or SW sync message
   useEffect(() => {
     const tryFlush = async () => {
-      if (!offline.effectiveOnline) return
+      if (!networkStatus.effectiveOnline) return
 
       // Check if there are items to sync
       if (user?.id) {
@@ -355,7 +359,7 @@ export default function DashboardPage() {
         onMessage as any
       )
     }
-  }, [flushOfflineOutbox, offline.effectiveOnline, user?.id])
+  }, [flushOfflineOutbox, networkStatus.effectiveOnline, user?.id])
 
   // Poll outbox count periodically
   useEffect(() => {
@@ -470,7 +474,7 @@ export default function DashboardPage() {
                 {/* Offline Status Indicator */}
                 <OfflineStatusIndicator />
                 {/* Realtime Connection Status - only show when online but realtime has issues */}
-                {offline.effectiveOnline && (
+                {networkStatus.effectiveOnline && (
                   <>
                     {realtimeState.connectionStatus === 'connecting' ? (
                       <div

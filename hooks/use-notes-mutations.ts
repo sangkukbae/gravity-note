@@ -23,7 +23,6 @@ import type {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
 import { useUnifiedSearch } from './use-unified-search'
-import { useOfflineStatus } from './use-offline-status'
 import { useNetworkStatus } from './use-network-status'
 import {
   createOutboxItem,
@@ -144,7 +143,6 @@ export function useNotesMutations() {
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const supabase = createClient()
-  const offline = useOfflineStatus()
   const { trackNoteCreation, trackNoteRescue, trackSearch, trackError } =
     useAnalytics()
   // Keep network checks lightweight in frequently-mounted hooks
@@ -260,7 +258,7 @@ export function useNotesMutations() {
       }
 
       // If offline or network is poor, enqueue and return a temp note optimistically
-      if (!offline.effectiveOnline || networkStatus.isOffline) {
+      if (networkStatus.isOffline) {
         const tempId = `temp_${cryptoRandomId()}`
         const now = new Date().toISOString()
 
@@ -406,7 +404,7 @@ export function useNotesMutations() {
         error: error.message,
         networkStatus: networkStatus.quality,
         isOnline: networkStatus.effectiveOnline,
-        isOffline: offline.effectiveOnline,
+        isOffline: networkStatus.isOffline,
       })
     },
   })
@@ -545,7 +543,7 @@ export function useNotesMutations() {
       }
 
       // If offline, enqueue delete operation
-      if (!offline.effectiveOnline || networkStatus.isOffline) {
+      if (networkStatus.isOffline) {
         // Enqueue delete mutation for background sync
         const item = createOutboxItem('delete', { noteId }, { tempId: noteId })
         enqueueOutbox(user.id, item)

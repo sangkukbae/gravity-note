@@ -1,6 +1,6 @@
 'use client'
 
-import { useOfflineStatus } from '@/hooks/use-offline-status'
+import { useNetworkStatus } from '@/hooks/use-network-status'
 import { cn } from '@/lib/utils'
 import { WifiOffIcon } from 'lucide-react'
 import { isOfflineFeaturesEnabled } from '@/lib/config'
@@ -12,7 +12,11 @@ interface OfflineStatusIndicatorProps {
 export function OfflineStatusIndicator({
   className,
 }: OfflineStatusIndicatorProps) {
-  const { isOnline, effectiveOnline, lastChangeAt } = useOfflineStatus()
+  const { isOnline, effectiveOnline, lastChangeAt } = useNetworkStatus({
+    pingUrl: '/manifest.json',
+    pingIntervalMs: 30000,
+    enableQualityMonitoring: false,
+  })
   if (!isOfflineFeaturesEnabled()) return null
 
   // Show indicator when effectively offline (either browser offline or connectivity issues)

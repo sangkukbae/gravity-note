@@ -4,7 +4,7 @@ import { useCallback } from 'react'
 import { track } from '@vercel/analytics'
 import { usePostHog } from 'posthog-js/react'
 import { useAuthStore } from '@/lib/stores/auth'
-import { useOfflineStatus } from './use-offline-status'
+import { useNetworkStatus } from './use-network-status'
 
 export interface NoteAnalyticsProperties extends Record<string, unknown> {
   noteId?: string
@@ -31,7 +31,11 @@ export interface PerformanceAnalyticsProperties
 
 export function useAnalytics() {
   const { user } = useAuthStore()
-  const offline = useOfflineStatus()
+  const networkStatus = useNetworkStatus({
+    pingUrl: '/manifest.json',
+    pingIntervalMs: 30000,
+    enableQualityMonitoring: false,
+  })
   const posthog = usePostHog()
 
   // Helper to track to both Vercel Analytics and PostHog
@@ -78,10 +82,10 @@ export function useAnalytics() {
     (properties: NoteAnalyticsProperties) => {
       trackToServices('note_created', {
         ...properties,
-        isOffline: offline ? !offline.effectiveOnline : false,
+        isOffline: !networkStatus.effectiveOnline,
       })
     },
-    [trackToServices, offline]
+    [trackToServices, networkStatus]
   )
 
   const trackNoteRescue = useCallback(
