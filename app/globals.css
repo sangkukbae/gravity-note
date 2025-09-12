@@ -5,67 +5,75 @@
 /* Shadcn/ui CSS Variables - Enhanced Light Theme */
 @layer base {
   :root {
-    /* Warmed background colors to complement cosmic gradient */
-    --background: 20 8% 98%;
-    --foreground: 240 15% 9%;
+    /* Gravitational theme - Clean and focused backgrounds */
+    --background: 0 0% 98%;
+    --foreground: 240 10% 3.9%;
 
-    /* Card colors with subtle warm tone harmonizing with cosmic palette */
-    --card: 25 12% 97%;
-    --card-foreground: 240 15% 9%;
+    /* Card colors with subtle neutral tones */
+    --card: 0 0% 97%;
+    --card-foreground: 240 10% 3.9%;
 
-    /* Popover colors with cosmic harmony */
-    --popover: 20 8% 98%;
-    --popover-foreground: 240 15% 9%;
+    /* Popover colors maintaining clean aesthetic */
+    --popover: 0 0% 98%;
+    --popover-foreground: 240 10% 3.9%;
 
-    /* Primary colors remain unchanged for brand consistency */
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary colors - Deep space black for gravity concept */
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
 
-    /* Warmed secondary colors complementing orange-purple cosmic tones */
-    --secondary: 25 20% 90%;
-    --secondary-foreground: 240 15% 9%;
+    /* Secondary colors - Subtle grays for minimalism */
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
 
-    /* Improved muted colors with cosmic warmth */
-    --muted: 30 15% 92%;
-    --muted-foreground: 240 10% 45%;
+    /* Muted colors for subtle UI elements */
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
 
-    /* Enhanced accent with cosmic harmony */
-    --accent: 25 20% 90%;
-    --accent-foreground: 240 15% 9%;
+    /* Accent - Physics blue for gravity/science theme */
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 98%;
 
     /* Destructive colors remain unchanged for safety */
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    /* Warmed border colors complementing cosmic gradient */
-    --border: 30 20% 85%;
-    --input: 30 20% 85%;
+    /* Clean border colors for minimal aesthetic */
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
 
-    /* Enhanced ring color with better cosmic harmony */
-    --ring: 18 85% 55%;
+    /* Ring color using physics blue */
+    --ring: 221 83% 53%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Deep space background theme */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 95%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 95%;
+
+    /* Primary inverted for dark - clean white */
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+
+    /* Secondary subtle grays for dark mode */
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    /* Accent - Brighter physics blue for dark mode */
+    --accent: 217 91% 60%;
+    --accent-foreground: 240 10% 3.9%;
+
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 18 100% 70%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 217 91% 60%;
   }
 }
 
@@ -882,64 +890,62 @@
 .cosmic-orb-primary {
   @apply absolute inset-0;
   background: radial-gradient(
-    circle at var(--cosmic-center-x, 50%) var(--cosmic-center-y, 120%),
-    #ff6b35 0%,
-    #ff8e53 25%,
-    #e879f9 50%,
-    #6366f1 75%,
+    ellipse at var(--cosmic-center-x, 50%) var(--cosmic-center-y, 100%),
+    rgba(59, 130, 246, 0.08) 0%,
+    rgba(59, 130, 246, 0.04) 25%,
+    rgba(24, 24, 27, 0.02) 50%,
     transparent 100%
   );
-  filter: blur(1px);
+  filter: blur(2px);
   transition: opacity 0.3s ease-out;
-  opacity: var(--cosmic-opacity, 0.8);
+  opacity: var(--cosmic-opacity, 0.6);
 }
 
 .cosmic-glow-secondary {
   @apply absolute inset-0;
   background: radial-gradient(
-    ellipse at var(--cosmic-glow-x, 50%) var(--cosmic-glow-y, 125%),
-    rgba(255, 107, 53, 0.4) 0%,
-    rgba(255, 142, 83, 0.3) 30%,
-    rgba(232, 121, 249, 0.2) 60%,
+    ellipse at var(--cosmic-glow-x, 50%) var(--cosmic-glow-y, 110%),
+    rgba(59, 130, 246, 0.06) 0%,
+    rgba(59, 130, 246, 0.03) 40%,
+    rgba(59, 130, 246, 0.01) 70%,
     transparent 100%
   );
-  filter: blur(2px);
+  filter: blur(3px);
   transition: opacity 0.3s ease-out;
-  opacity: var(--cosmic-glow-opacity, 0.6);
+  opacity: var(--cosmic-glow-opacity, 0.4);
 }
 
 .cosmic-space-background {
-  @apply absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950;
+  @apply absolute inset-0 bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50;
 }
 
-/* Dark theme cosmic adjustments */
+/* Dark theme gravitational adjustments */
 .dark .cosmic-space-background {
-  @apply from-slate-950 via-indigo-950 to-black;
+  @apply from-slate-950 via-slate-900 to-slate-950;
 }
 
 .dark .cosmic-orb-primary {
   background: radial-gradient(
-    circle at var(--cosmic-center-x, 50%) var(--cosmic-center-y, 120%),
-    #ff6b35 0%,
-    #ff8e53 20%,
-    #e879f9 45%,
-    #6366f1 70%,
+    ellipse at var(--cosmic-center-x, 50%) var(--cosmic-center-y, 100%),
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 25%,
+    rgba(59, 130, 246, 0.03) 50%,
     transparent 100%
   );
-  filter: blur(0.5px);
-  opacity: var(--cosmic-opacity, 0.9);
+  filter: blur(1px);
+  opacity: var(--cosmic-opacity, 0.8);
 }
 
 .dark .cosmic-glow-secondary {
   background: radial-gradient(
-    ellipse at var(--cosmic-glow-x, 50%) var(--cosmic-glow-y, 125%),
-    rgba(255, 107, 53, 0.6) 0%,
-    rgba(255, 142, 83, 0.4) 25%,
-    rgba(232, 121, 249, 0.3) 55%,
+    ellipse at var(--cosmic-glow-x, 50%) var(--cosmic-glow-y, 110%),
+    rgba(59, 130, 246, 0.12) 0%,
+    rgba(59, 130, 246, 0.06) 40%,
+    rgba(59, 130, 246, 0.02) 70%,
     transparent 100%
   );
-  filter: blur(3px);
-  opacity: var(--cosmic-glow-opacity, 0.8);
+  filter: blur(4px);
+  opacity: var(--cosmic-glow-opacity, 0.6);
 }
 
 /* Optional subtle animation for cosmic effect */
