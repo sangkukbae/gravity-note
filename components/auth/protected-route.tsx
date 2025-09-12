@@ -32,10 +32,20 @@ export function ProtectedRoute({
     // Re-verify auth when page becomes visible (e.g., back navigation)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && initialized && !loading) {
-        // Force re-evaluation of auth state when page becomes visible
-        if (!user) {
-          router.push(redirectTo)
-        }
+        // OAuth 콜백 후 세션 로드 시간 확보를 위한 딜레이
+        // Google SSO와 같은 OAuth 플로우에서 세션이 완전히 로드되기 전에
+        // 리다이렉션이 발생하는 것을 방지합니다
+        setTimeout(() => {
+          // 다시 한 번 현재 user 상태 확인 (Zustand store에서 직접 가져오기)
+          const currentState = useAuthStore.getState()
+          if (
+            !currentState.user &&
+            currentState.initialized &&
+            !currentState.loading
+          ) {
+            router.push(redirectTo)
+          }
+        }, 500) // 500ms 딜레이로 세션 로드 시간 확보
       }
     }
 
