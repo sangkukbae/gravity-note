@@ -68,7 +68,54 @@ This implementation plan provides a comprehensive roadmap for building Gravity N
 
 **Current Status**: Implementation is **95%+ ahead of schedule** with attachment modal integration, advanced search engine with Unicode normalization, fullscreen image viewer enhancements, and comprehensive E2E testing coverage completed
 
-**Next Phase Ready**: Production deployment optimization, comprehensive monitoring, and beta user testing program
+#### 📝 Slash Command System & Inline References Architecture (September 13, 2025)
+
+**Advanced Text Input Enhancement:**
+
+- **Slash Command System Implementation**: Comprehensive markdown slash command functionality with sophisticated caret positioning
+  - Floating UI integration with virtual element positioning for precise command menu placement
+  - Markdown command library supporting headers, formatting, lists, code blocks, and specialized elements
+  - Keyboard navigation with arrow keys, Enter selection, and Escape dismissal
+  - Real-time text insertion with cursor position management and textarea focus handling
+  - IME composition protection for international input methods
+- **DOM Utilities Integration**: Custom caret positioning library with `getTextareaCaretRect` for pixel-perfect menu placement
+  - Viewport-relative positioning calculations with scroll and resize event handling
+  - Debounced position updates to prevent excessive DOM calculations
+  - Fallback strategies for edge cases and cross-browser compatibility
+- **React Hook Architecture**: `useSlashCommand` hook providing complete slash command functionality
+  - State management for trigger detection, search filtering, and menu positioning
+  - Event handlers for textarea changes, keyboard navigation, and command selection
+  - Integration points for existing note input components and creation modals
+
+**@-Mention System Design Foundation:**
+
+- **Comprehensive Design Document**: Complete technical specification for Notion-style @-mentions system
+  - Inline note referencing with `[[gn:note:<id>|<label>]]` token format for platform compatibility
+  - Floating UI-based mention menu with recent notes prioritization and search functionality
+  - HoverCard preview integration for referenced note metadata and content snippets
+  - A11y compliance with combobox pattern and keyboard navigation standards
+- **Implementation Roadmap**: Phased development plan with PR-based delivery approach
+  - Phase 1: Hook infrastructure with trigger detection and caret positioning
+  - Phase 2: Inline menu with recent notes and search integration
+  - Phase 3: Token rendering with link generation and hover previews
+  - Phase 4: Advanced features including expanded search and reverse link tracking
+- **Integration Strategy**: Seamless integration with existing TemporalCommandPalette and search infrastructure
+  - Reuse of established patterns for consistent UX across command and mention systems
+  - Performance optimization with debounced queries and cached recent notes
+  - Error handling and offline functionality with graceful degradation
+
+**Technical Infrastructure Enhancements:**
+
+- **Component Architecture**: Modular design with reusable positioning and menu components
+  - Portal-based rendering for proper z-index management and viewport clipping
+  - Command.js integration for consistent keyboard navigation and filtering
+  - TypeScript interface definitions for extensible command and mention systems
+- **Performance Optimization**: Sophisticated caret tracking with minimal DOM manipulation
+  - RequestAnimationFrame-based position updates for smooth menu following
+  - Debounced search queries to prevent excessive server requests
+  - Virtual scrolling readiness for large command and mention result sets
+
+**Next Phase Ready**: Production deployment optimization, comprehensive monitoring, slash command system integration testing, and beta user testing program
 
 #### ⚡ Shiki Optimization & Code Highlighting System (September 6, 2025)
 

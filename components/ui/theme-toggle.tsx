@@ -48,7 +48,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       variant='ghost'
       size='sm'
       className={cn(
-        'h-8 w-8 p-0 rounded-full hover:bg-accent/50 transition-colors',
+        'h-8 w-8 p-0 rounded-full hover:bg-muted transition-colors',
         'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         className
       )}

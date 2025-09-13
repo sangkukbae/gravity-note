@@ -41,7 +41,7 @@ export const NoteMoreMenu = memo(function NoteMoreMenu({
         <Button
           variant='ghost'
           size='icon'
-          className='h-7 w-7 text-muted-foreground/60 hover:text-foreground'
+          className='h-7 w-7 text-foreground/50 hover:text-foreground hover:bg-accent/10'
           aria-label='More actions'
         >
           <MoreVertical className='h-4 w-4' />

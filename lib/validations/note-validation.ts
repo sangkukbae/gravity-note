@@ -56,22 +56,32 @@ export interface CreateNoteValidationResult {
 }
 
 /**
- * Basic HTML tag detection for XSS prevention
- * Not a comprehensive security solution, but catches basic attempts
+ * Context-aware executable content detection for note-taking app security
+ *
+ * SECURITY MODEL: This app is safe from XSS because:
+ * - All content is rendered through React components with automatic escaping
+ * - No use of dangerouslySetInnerHTML anywhere in the rendering pipeline
+ * - Both text renderers (Enhanced & Markdown) use safe JSX rendering
+ *
+ * APPROACH: Allow HTML tags and code snippets as text content (common for developers)
+ * but detect patterns that suggest actual executable content attempts.
  */
-function containsSuspiciousContent(content: string): boolean {
-  // Basic XSS patterns to detect
-  const xssPatterns = [
-    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-    /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
-    /javascript:/gi,
-    /on\w+\s*=/gi, // Event handlers like onclick, onload
-    /<object\b/gi,
-    /<embed\b/gi,
-    /<form\b/gi,
+function containsExecutableContent(content: string): boolean {
+  // Only detect patterns that indicate genuine executable content attempts,
+  // not legitimate code snippets being stored as text for reference
+  const executablePatterns = [
+    // Data URIs with executable content (javascript: protocols or script tags)
+    /data:[^,]*(?:javascript|vbscript):/gi,
+    /data:[^,]*,.*<script\b/gi,
+    // Protocol handlers that could execute code in suspicious contexts
+    // Only flag javascript: when it appears to be in a link context
+    /href\s*=\s*["']?javascript:/gi,
+    /src\s*=\s*["']?javascript:/gi,
+    // Event handlers with obvious executable intent (complete attribute patterns)
+    /\s(?:on\w+)\s*=\s*["']?[^"'\s>]+["']?/gi,
   ]
 
-  return xssPatterns.some(pattern => pattern.test(content))
+  return executablePatterns.some(pattern => pattern.test(content))
 }
 
 /**
@@ -99,8 +109,8 @@ export const noteContentSchema = z
   .max(NOTE_VALIDATION.MAX_LENGTH, {
     message: `Note content must not exceed ${NOTE_VALIDATION.MAX_LENGTH} characters`,
   })
-  .refine(content => !containsSuspiciousContent(content), {
-    message: 'Note content contains potentially unsafe content',
+  .refine(content => !containsExecutableContent(content), {
+    message: 'Note content contains potentially executable content',
   })
   .transform(sanitizeContent)
 
@@ -174,10 +184,11 @@ export function validateNoteContent(content: unknown): ValidationResult {
       errorMessage = error.message
     } else if (
       error.code === 'custom' &&
-      error.message.includes('unsafe content')
+      error.message.includes('executable content')
     ) {
       validationType = NoteValidationErrorType.XSS_DETECTED
-      errorMessage = 'Please remove any HTML tags or scripts from your note'
+      errorMessage =
+        'Please remove executable code patterns (like javascript: URLs or event handlers) from your note'
     } else if (error.code === 'invalid_type') {
       validationType = NoteValidationErrorType.REQUIRED
       errorMessage = 'Note content is required'
@@ -268,7 +279,7 @@ export function getValidationErrorMessage(
     case NoteValidationErrorType.TOO_LONG:
       return `Your note is too long (max ${NOTE_VALIDATION.MAX_LENGTH.toLocaleString()} characters)`
     case NoteValidationErrorType.XSS_DETECTED:
-      return 'Please remove any HTML tags or scripts from your note'
+      return 'Please remove executable code patterns from your note. HTML tags and code snippets are allowed as text content.'
     case NoteValidationErrorType.INVALID_CHARACTERS:
       return 'Your note contains invalid characters'
     case NoteValidationErrorType.RATE_LIMIT:

@@ -518,7 +518,7 @@ export default function DashboardPage() {
               <div className='flex items-center gap-3'>
                 <button
                   onClick={openCommandPalette}
-                  className='flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground rounded-md border border-border/50 hover:bg-accent/50 hover:text-foreground transition-colors'
+                  className='flex items-center gap-2 px-3 py-1.5 text-sm text-foreground/70 hover:text-foreground rounded-md border border-border hover:bg-muted transition-colors'
                   title={`Search notes (${getSearchShortcutTooltip()})`}
                 >
                   <SearchIcon className='h-4 w-4' />

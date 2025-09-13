@@ -11,6 +11,8 @@ import {
   useNoteContentValidation,
   useContentStats,
 } from '@/hooks/use-validation'
+import { useSlashCommand } from '@/hooks/use-slash-command'
+import { SlashCommandDropdown } from '@/components/slash-command/slash-command-dropdown'
 
 interface NoteEditModalProps {
   isOpen: boolean
@@ -40,6 +42,13 @@ export function NoteEditModal({
     enableStats: true,
   })
   const contentStats = useContentStats(content)
+
+  // Slash command hook
+  const slashCommand = useSlashCommand({
+    textareaRef,
+    onValueChange: setContent,
+    disabled: isLoading,
+  })
 
   // Refs to avoid stale closures and prevent re-render cycles
   const validationRef = useRef(validation)
@@ -139,6 +148,10 @@ export function NoteEditModal({
 
   // Handle keyboard shortcuts
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Let slash command handle keys first
+    const slashHandled = slashCommand.handleKeyDown(e)
+    if (slashHandled) return
+
     // Submit on Ctrl/Cmd+Enter
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -166,7 +179,15 @@ export function NoteEditModal({
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const next = e.target.value
-      setContent(next)
+
+      // Handle slash command detection first
+      slashCommand.handleTextareaChange(e)
+
+      // Only update content if it's different from what slash command set
+      // (to avoid overriding slash command's state management)
+      if (next !== content) {
+        setContent(next)
+      }
 
       // Real-time validation using refs to avoid stale closures
       const currentValidation = validationRef.current
@@ -177,7 +198,7 @@ export function NoteEditModal({
       // Adjust height after content change using ref
       setTimeout(() => adjustHeightRef.current?.(), 0)
     },
-    []
+    [content, slashCommand]
   )
 
   // Calculate validation state for UI
@@ -315,6 +336,18 @@ export function NoteEditModal({
             )}
           </Button>
         </div>
+
+        {/* Slash Command Dropdown */}
+        <SlashCommandDropdown
+          isOpen={slashCommand.isOpen}
+          search={slashCommand.search}
+          position={slashCommand.menuPosition}
+          commands={slashCommand.filteredCommands}
+          onSelect={slashCommand.insertMarkdown}
+          onOpenChange={open => {
+            if (!open) slashCommand.closeMenu?.()
+          }}
+        />
       </DialogContent>
     </Dialog>
   )
