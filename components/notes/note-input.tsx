@@ -26,6 +26,8 @@ import {
   useNoteContentValidation,
   useContentStats,
 } from '@/hooks/use-validation'
+import { useSlashCommand } from '@/hooks/use-slash-command'
+import { SlashCommandDropdown } from '@/components/slash-command/slash-command-dropdown'
 
 interface NoteInputProps {
   onSubmit: (content: string) => Promise<{ id: string } | void>
@@ -69,6 +71,13 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       enableStats: true,
     })
     const contentStats = useContentStats(content)
+
+    // Slash command hook
+    const slashCommand = useSlashCommand({
+      textareaRef,
+      onValueChange: setContent,
+      disabled: isLoading,
+    })
 
     // Expose focus method to parent component via ref
     useImperativeHandle(
@@ -319,6 +328,10 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Let slash command handle keys first
+      const slashHandled = slashCommand.handleKeyDown(e)
+      if (slashHandled) return
+
       // Submit on Enter (but allow Shift+Enter for line breaks)
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
@@ -329,7 +342,15 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const next = e.target.value
-      setContent(next)
+
+      // Handle slash command detection first
+      slashCommand.handleTextareaChange(e)
+
+      // Only update content if it's different from what slash command set
+      // (to avoid overriding slash command's state management)
+      if (next !== content) {
+        setContent(next)
+      }
 
       // Real-time validation
       if (validation.state.hasBeenValidated || next.trim().length > 0) {
@@ -791,6 +812,18 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
               )}
             </div>
           )}
+
+          {/* Slash Command Dropdown */}
+          <SlashCommandDropdown
+            isOpen={slashCommand.isOpen}
+            search={slashCommand.search}
+            position={slashCommand.menuPosition}
+            commands={slashCommand.filteredCommands}
+            onSelect={slashCommand.insertMarkdown}
+            onOpenChange={open => {
+              if (!open) slashCommand.closeMenu?.()
+            }}
+          />
         </div>
       </div>
     )
