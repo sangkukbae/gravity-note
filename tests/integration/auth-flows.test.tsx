@@ -212,7 +212,8 @@ describe('Authentication Integration Tests', () => {
       )
 
       await waitFor(() => {
-        expect(mockRouter.push).toHaveBeenCalledWith('/auth/signin')
+        // We now use router.replace to avoid history pollution
+        expect(mockRouter.replace).toHaveBeenCalledWith('/auth/signin')
       })
 
       expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
@@ -427,7 +428,7 @@ describe('Authentication Integration Tests', () => {
 
       // Should redirect to sign in
       await waitFor(() => {
-        expect(mockRouter.push).toHaveBeenCalledWith('/auth/signin')
+        expect(mockRouter.replace).toHaveBeenCalledWith('/auth/signin')
       })
     })
   })
