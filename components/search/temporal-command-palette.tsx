@@ -255,7 +255,7 @@ export function TemporalCommandPalette({
         placeholder='Search notes...'
         value={query}
         onValueChange={setQuery}
-        className='focus-within:border-ring/50'
+        className='focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/20'
       />
 
       <CommandList className='min-h-[280px] md:min-h-[420px] max-h-[70vh] md:max-h-[500px] overflow-y-auto'>
@@ -294,7 +294,7 @@ export function TemporalCommandPalette({
           <>
             <CommandGroup heading='Search Results'>
               <div className='px-2 py-1.5'>
-                <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+                <div className='flex items-center gap-2 text-xs text-foreground/60'>
                   <span>
                     Found {data.metadata.totalResults} result
                     {data.metadata.totalResults !== 1 ? 's' : ''}

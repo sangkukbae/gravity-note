@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth'
 
@@ -15,50 +15,48 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, loading, initialized } = useAuthStore()
   const router = useRouter()
+  const redirectScheduledRef = useRef<number | null>(null)
+  const didRedirectRef = useRef(false)
 
+  // Core guard: after auth initializes, if no user, redirect.
+  // Add a small grace period to avoid a false-negative right after
+  // OAuth callbacks while Supabase hydrates the session on the client.
   useEffect(() => {
-    if (initialized && !loading && !user) {
-      router.push(redirectTo)
-    }
-  }, [user, loading, initialized, router, redirectTo])
-
-  // Security: Prevent BFCache and handle page visibility for auth verification
-  useEffect(() => {
-    // Prevent BFCache to ensure auth checks run on back navigation
-    const preventBFCache = () => {
-      // This event ensures the page is removed from BFCache
+    // Clear any pending redirect when state changes
+    if (redirectScheduledRef.current) {
+      window.clearTimeout(redirectScheduledRef.current)
+      redirectScheduledRef.current = null
     }
 
-    // Re-verify auth when page becomes visible (e.g., back navigation)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && initialized && !loading) {
-        // OAuth 콜백 후 세션 로드 시간 확보를 위한 딜레이
-        // Google SSO와 같은 OAuth 플로우에서 세션이 완전히 로드되기 전에
-        // 리다이렉션이 발생하는 것을 방지합니다
-        setTimeout(() => {
-          // 다시 한 번 현재 user 상태 확인 (Zustand store에서 직접 가져오기)
-          const currentState = useAuthStore.getState()
-          if (
-            !currentState.user &&
-            currentState.initialized &&
-            !currentState.loading
-          ) {
-            router.push(redirectTo)
-          }
-        }, 500) // 500ms 딜레이로 세션 로드 시간 확보
+    if (!initialized || loading || user || didRedirectRef.current) return
+
+    // Schedule a short, one-off recheck before redirecting
+    redirectScheduledRef.current = window.setTimeout(() => {
+      const {
+        user: currentUser,
+        initialized: init,
+        loading: isLoading,
+      } = useAuthStore.getState()
+
+      if (!currentUser && init && !isLoading && !didRedirectRef.current) {
+        didRedirectRef.current = true
+        // Use replace to avoid polluting history (prevents back navigation
+        // to a protected page after logout).
+        router.replace(redirectTo)
+      }
+    }, 300)
+
+    return () => {
+      if (redirectScheduledRef.current) {
+        window.clearTimeout(redirectScheduledRef.current)
+        redirectScheduledRef.current = null
       }
     }
-
-    // Set up event listeners
-    window.addEventListener('beforeunload', preventBFCache)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('beforeunload', preventBFCache)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
   }, [user, loading, initialized, router, redirectTo])
+
+  // Note: We rely on server middleware + replace() above rather than
+  // BFCache prevention or visibility listeners. This avoids false redirects
+  // during the OAuth callback hydration window and keeps history clean.
 
   // Show loading state while checking auth
   if (!initialized || loading) {

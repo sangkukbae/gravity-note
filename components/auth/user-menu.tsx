@@ -40,7 +40,7 @@ export function UserMenu() {
         <DropdownMenuTrigger asChild>
           <Button
             variant='ghost'
-            className='h-8 w-8 p-0 rounded-full hover:bg-accent/50 transition-colors touch-manipulation min-h-[44px] min-w-[44px]'
+            className='h-8 w-8 p-0 rounded-full hover:bg-muted transition-colors touch-manipulation min-h-[44px] min-w-[44px]'
             aria-label='User menu'
           >
             <div className='h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary'>
