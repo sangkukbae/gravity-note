@@ -11,7 +11,7 @@
  * @see https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/#create-a-global-error-handler
  */
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -20,7 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, RefreshCw, MessageSquare } from 'lucide-react'
 
 interface GlobalErrorProps {
   error: Error & { digest?: string }
@@ -28,13 +28,15 @@ interface GlobalErrorProps {
 }
 
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
+  const [eventId, setEventId] = useState<string | null>(null)
+
   useEffect(() => {
     // Only report errors to Sentry in production
     if (process.env.NODE_ENV === 'production') {
       import('@sentry/nextjs')
         .then(Sentry => {
-          // Report the error to Sentry
-          Sentry.captureException(error, {
+          // Report the error to Sentry and capture the event ID
+          const errorEventId = Sentry.captureException(error, {
             tags: {
               component: 'global-error',
               location: 'app-root',
@@ -50,6 +52,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               timestamp: new Date().toISOString(),
             },
           })
+          setEventId(errorEventId)
         })
         .catch(console.error)
     } else {
@@ -57,6 +60,20 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
       console.error('Global Error:', error)
     }
   }, [error])
+
+  const handleReportFeedback = () => {
+    if (process.env.NODE_ENV === 'production') {
+      import('@sentry/nextjs')
+        .then(Sentry => {
+          const id = eventId ?? error.digest
+          Sentry.showReportDialog(id ? { eventId: id } : undefined)
+        })
+        .catch(console.error)
+    } else {
+      // In development, show a simple alert
+      alert('Error feedback would be sent in production mode')
+    }
+  }
 
   return (
     <html>
@@ -101,6 +118,15 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
                   onClick={() => (window.location.href = '/')}
                 >
                   Go to home page
+                </Button>
+
+                <Button
+                  variant='ghost'
+                  className='w-full'
+                  onClick={handleReportFeedback}
+                >
+                  <MessageSquare className='h-4 w-4 mr-2' />
+                  Report this issue
                 </Button>
               </div>
 
