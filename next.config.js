@@ -333,7 +333,7 @@ const sentryWebpackPluginOptions = {
 
   // Sentry CLI configuration
   silent: process.env.NODE_ENV === 'development', // Suppress logs in development
-  dryRun: true, // Always use dry run to prevent upload failures during development
+  dryRun: !process.env.SENTRY_AUTH_TOKEN, // Only dry run if no auth token is present
 
   // Source map upload configuration
   include: ['.next/static/chunks/', '.next/static/media/', '.next/server/'],
