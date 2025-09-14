@@ -13,6 +13,8 @@ import {
 } from '@/hooks/use-validation'
 import { useSlashCommand } from '@/hooks/use-slash-command'
 import { SlashCommandDropdown } from '@/components/slash-command/slash-command-dropdown'
+import { useMentionTrigger } from '@/hooks/use-mention-trigger'
+import { MentionDropdown } from '@/components/mentions/mention-dropdown'
 
 interface NoteEditModalProps {
   isOpen: boolean
@@ -45,6 +47,13 @@ export function NoteEditModal({
 
   // Slash command hook
   const slashCommand = useSlashCommand({
+    textareaRef,
+    onValueChange: setContent,
+    disabled: isLoading,
+  })
+
+  // Mention trigger hook
+  const mentionTrigger = useMentionTrigger({
     textareaRef,
     onValueChange: setContent,
     disabled: isLoading,
@@ -152,6 +161,10 @@ export function NoteEditModal({
     const slashHandled = slashCommand.handleKeyDown(e)
     if (slashHandled) return
 
+    // Let mention trigger handle keys second
+    const mentionHandled = mentionTrigger.handleKeyDown(e)
+    if (mentionHandled) return
+
     // Submit on Ctrl/Cmd+Enter
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -183,8 +196,11 @@ export function NoteEditModal({
       // Handle slash command detection first
       slashCommand.handleTextareaChange(e)
 
-      // Only update content if it's different from what slash command set
-      // (to avoid overriding slash command's state management)
+      // Handle mention detection second
+      mentionTrigger.handleTextareaChange(e)
+
+      // Only update content if it's different from what slash/mention commands set
+      // (to avoid overriding command state management)
       if (next !== content) {
         setContent(next)
       }
@@ -198,7 +214,7 @@ export function NoteEditModal({
       // Adjust height after content change using ref
       setTimeout(() => adjustHeightRef.current?.(), 0)
     },
-    [content, slashCommand]
+    [content, slashCommand, mentionTrigger]
   )
 
   // Calculate validation state for UI
@@ -346,6 +362,19 @@ export function NoteEditModal({
           onSelect={slashCommand.insertMarkdown}
           onOpenChange={open => {
             if (!open) slashCommand.closeMenu?.()
+          }}
+        />
+
+        {/* Mention Dropdown */}
+        <MentionDropdown
+          isOpen={mentionTrigger.isOpen}
+          search={mentionTrigger.search}
+          position={mentionTrigger.menuPosition}
+          candidates={mentionTrigger.filteredCandidates}
+          isLoading={mentionTrigger.isLoadingCandidates}
+          onSelect={mentionTrigger.insertMention}
+          onOpenChange={open => {
+            if (!open) mentionTrigger.closeMenu?.()
           }}
         />
       </DialogContent>

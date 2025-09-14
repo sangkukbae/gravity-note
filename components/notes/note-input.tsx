@@ -28,6 +28,8 @@ import {
 } from '@/hooks/use-validation'
 import { useSlashCommand } from '@/hooks/use-slash-command'
 import { SlashCommandDropdown } from '@/components/slash-command/slash-command-dropdown'
+import { useMentionTrigger } from '@/hooks/use-mention-trigger'
+import { MentionDropdown } from '@/components/mentions/mention-dropdown'
 
 interface NoteInputProps {
   onSubmit: (content: string) => Promise<{ id: string } | void>
@@ -74,6 +76,13 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
 
     // Slash command hook
     const slashCommand = useSlashCommand({
+      textareaRef,
+      onValueChange: setContent,
+      disabled: isLoading,
+    })
+
+    // Mention trigger hook
+    const mentionTrigger = useMentionTrigger({
       textareaRef,
       onValueChange: setContent,
       disabled: isLoading,
@@ -332,6 +341,10 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       const slashHandled = slashCommand.handleKeyDown(e)
       if (slashHandled) return
 
+      // Let mention trigger handle keys second
+      const mentionHandled = mentionTrigger.handleKeyDown(e)
+      if (mentionHandled) return
+
       // Submit on Enter (but allow Shift+Enter for line breaks)
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
@@ -346,7 +359,10 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
       // Handle slash command detection first
       slashCommand.handleTextareaChange(e)
 
-      // Only update content if it's different from what slash command set
+      // Handle mention trigger detection second
+      mentionTrigger.handleTextareaChange(e)
+
+      // Only update content if it's different from what slash command or mention set
       // (to avoid overriding slash command's state management)
       if (next !== content) {
         setContent(next)
@@ -822,6 +838,19 @@ export const NoteInput = forwardRef<NoteInputRef, NoteInputProps>(
             onSelect={slashCommand.insertMarkdown}
             onOpenChange={open => {
               if (!open) slashCommand.closeMenu?.()
+            }}
+          />
+
+          {/* Mention Dropdown */}
+          <MentionDropdown
+            isOpen={mentionTrigger.isOpen}
+            search={mentionTrigger.search}
+            position={mentionTrigger.menuPosition}
+            candidates={mentionTrigger.filteredCandidates}
+            isLoading={mentionTrigger.isLoadingCandidates}
+            onSelect={mentionTrigger.insertMention}
+            onOpenChange={open => {
+              if (!open) mentionTrigger.closeMenu?.()
             }}
           />
         </div>
