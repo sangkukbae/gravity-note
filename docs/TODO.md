@@ -3,8 +3,8 @@
 **Timeline**: 3-month solo developer roadmap  
 **Target**: MVP launch with core features  
 **Stack**: Next.js 14 + Supabase + Vercel  
-**Last Updated**: September 13, 2025
-**Current Status**: ✅ **Slash Command System & @-Mention Design** — Advanced text input enhancement with comprehensive slash command functionality featuring Floating UI integration, sophisticated caret positioning, and markdown command library. Complete @-mention system design specification prepared for implementation. The project maintains 95%+ progress ahead of the original 3-month timeline with advanced UI/UX features and comprehensive technical architecture.
+**Last Updated**: September 14, 2025
+**Current Status**: ✅ **@-Mention System Implementation Complete** — Full Notion-style inline mention system deployed with sophisticated token-based architecture, real-time search, caret-accurate positioning, and seamless integration alongside the existing slash command system. The project maintains 98%+ progress ahead of the original 3-month timeline with advanced UI/UX features and comprehensive technical architecture.
 
 ---
 
@@ -27,7 +27,7 @@ This TODO list follows the 3-month implementation plan for Gravity Note, organiz
 - [x] Note editing (Modal UI + more menu entry)
 - [x] Analytics foundation (Vercel Analytics + event hooks)
 - [x] Slash command system (Advanced text input with markdown commands)
-- [x] @-mention design (Complete specification ready for implementation)
+- [x] @-mention system (Complete implementation with token-based architecture)
 - [ ] < 2 second app launch time
 - [ ] 99.9% note creation success rate
 - [ ] 500-2K users within 3 months post-launch
@@ -1588,16 +1588,24 @@ Follow‑ups
   - TypeScript interface definitions for extensible command systems
   - Modular design with reusable positioning and menu components
 
-### 📋 **@-Mention System Design - SPECIFICATION COMPLETED**
+### 📋 **@-Mention System Implementation - FULLY COMPLETED (September 14, 2025)**
 
-**Comprehensive Design Document:**
+**Full Production Implementation:**
 
-- [x] **Technical Specification Complete** (`docs/MENTIONS_DESIGN.md`)
-  - Notion-style @-mention system design with inline note referencing
-  - `[[gn:note:<id>|<label>]]` token format for platform compatibility
-  - Floating UI-based mention menu with recent notes prioritization
-  - HoverCard preview integration for referenced note metadata
-  - A11y compliance with combobox pattern and keyboard navigation standards
+- [x] **Complete Mention System Deployed**
+  - Notion-style @-mention system with dual token formats: `@[note-id]` and `@{title:id}`
+  - Real-time note search with content and title matching during typing
+  - Advanced mention parser with proper inline rendering and whitespace preservation
+  - Caret-accurate positioning using DOM Range API for precise dropdown placement
+- [x] **Interactive UI Components**
+  - MentionDropdown with live search results, timestamps, and loading states
+  - MentionLink component with hover previews and accessibility support
+  - Keyboard navigation with arrow keys, Enter selection, and Escape dismissal
+- [x] **Seamless Integration**
+  - Integration with SmartTextRenderer for proper inline mention display
+  - Works alongside slash command system without conflicts
+  - Support in note creation modal, edit modal, and main note input
+  - Korean character support with proper text processing and cursor handling
 
 - [x] **Implementation Roadmap Defined**
   - Phase 1: Hook infrastructure with trigger detection and caret positioning
@@ -1613,12 +1621,16 @@ Follow‑ups
 
 ### 🚀 **Implementation Status**
 
-**Ready for Integration:**
+**Fully Completed and Deployed:**
 
-- [x] Slash command system fully functional and ready for note input integration
-- [x] @-mention system design specification complete and ready for development
-- [ ] Integration of slash commands into note creation and editing modals
-- [ ] Implementation of @-mention system Phase 1-4 roadmap
-- [ ] E2E testing for advanced text input features
+- [x] Slash command system fully functional and integrated in all note inputs
+- [x] @-mention system fully implemented with all 4 phases completed
+- [x] Integration of slash commands into note creation and editing modals
+- [x] Complete implementation of @-mention system Phase 1-4 roadmap
+      ✅ Phase 1: Hook infrastructure with trigger detection and caret positioning
+      ✅ Phase 2: Inline menu with recent notes and search integration
+      ✅ Phase 3: Token rendering with link generation and hover previews
+      ✅ Phase 4: Advanced text processing with smart title generation
+- [ ] E2E testing for advanced text input features (pending)
 
-**Current Development Phase**: **Advanced Text Input Features & Enhanced UX** - Slash command system implemented with comprehensive @-mention design ready for phased development. All core systems maintain production-ready status with advanced user experience enhancements.
+**Current Development Phase**: **Launch Preparation & Final Polish** - Both slash command and @-mention systems are fully production-ready and deployed. All advanced text input features maintain production-ready status with comprehensive user experience enhancements and seamless integration.
