@@ -19,8 +19,9 @@ export async function register() {
       process.env.VERCEL_GIT_COMMIT_SHA ||
       process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
 
-    // Skip Sentry initialization outside production (e.g., development/test)
-    if (ENVIRONMENT !== 'production') {
+    // Skip Sentry initialization outside production unless explicitly enabled
+    const FORCE_SENTRY_IN_DEV = process.env.FORCE_SENTRY === 'true'
+    if (ENVIRONMENT !== 'production' && !FORCE_SENTRY_IN_DEV) {
       return
     }
 
@@ -126,8 +127,9 @@ export async function register() {
       process.env.VERCEL_GIT_COMMIT_SHA ||
       process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
 
-    // Skip Sentry initialization outside production (e.g., development/test)
-    if (ENVIRONMENT !== 'production') {
+    // Skip Sentry initialization outside production unless explicitly enabled
+    const EDGE_FORCE_SENTRY_IN_DEV = process.env.FORCE_SENTRY === 'true'
+    if (ENVIRONMENT !== 'production' && !EDGE_FORCE_SENTRY_IN_DEV) {
       return
     }
 

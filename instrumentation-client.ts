@@ -18,11 +18,12 @@ const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || undefined
 const ENVIRONMENT = process.env.NODE_ENV || 'development'
 const DEBUG_ENABLED = process.env.NEXT_PUBLIC_SENTRY_DEBUG === 'true'
 
-// Only initialize in production and only in the browser
+// Only initialize in production (or when forced) and only in the browser
+const FORCE_SENTRY_IN_DEV = process.env.NEXT_PUBLIC_FORCE_SENTRY === 'true'
 if (
   SENTRY_DSN &&
   typeof window !== 'undefined' &&
-  ENVIRONMENT === 'production'
+  (ENVIRONMENT === 'production' || FORCE_SENTRY_IN_DEV)
 ) {
   Sentry.init({
     dsn: SENTRY_DSN,
