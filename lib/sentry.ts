@@ -279,19 +279,49 @@ export function captureException(error: Error, context?: SentryErrorContext) {
     return
   }
 
-  return Sentry.captureException(error, {
-    tags: {
-      component: context?.component || 'unknown',
-      operation: context?.operation || 'unknown',
-      ...context?.tags,
-    },
-    extra: {
+  return Sentry.withScope(scope => {
+    // Set tags for better filtering and categorization
+    scope.setTag('component', context?.component || 'unknown')
+    scope.setTag('operation', context?.operation || 'unknown')
+
+    // Add custom tags
+    if (context?.tags) {
+      Object.entries(context.tags).forEach(([key, value]) => {
+        scope.setTag(key, value)
+      })
+    }
+
+    // Set context for detailed debugging
+    scope.setContext('error_context', {
       timestamp: new Date().toISOString(),
       url: typeof window !== 'undefined' ? window.location.href : 'unknown',
       userAgent:
         typeof window !== 'undefined' ? window.navigator.userAgent : 'unknown',
+      component: context?.component,
+      operation: context?.operation,
+      errorId: context?.errorId,
+      retryCount: context?.retryCount || 0,
       ...context?.extra,
-    },
+    })
+
+    // Set fingerprint for better grouping if provided
+    if (context?.component && context?.operation) {
+      scope.setFingerprint([context.component, context.operation, error.name])
+    }
+
+    // Set level based on context
+    if (context?.tags?.severity === 'critical') {
+      scope.setLevel('fatal')
+    } else if (
+      error.name.includes('Network') ||
+      error.message.includes('fetch')
+    ) {
+      scope.setLevel('warning')
+    } else {
+      scope.setLevel('error')
+    }
+
+    return Sentry.captureException(error, scope)
   })
 }
 
@@ -440,4 +470,105 @@ export function captureAuthError(
       error_type: 'auth',
     },
   })
+}
+
+/**
+ * Capture feature-specific error with enhanced context
+ */
+export function captureFeatureError(
+  error: Error,
+  feature: string,
+  action: string,
+  userId?: string,
+  additionalContext?: SentryErrorContext
+) {
+  return captureException(error, {
+    ...additionalContext,
+    component: feature,
+    operation: action,
+    tags: {
+      feature,
+      action,
+      ...(userId && { user_id: userId }),
+      ...additionalContext?.tags,
+    },
+  })
+}
+
+/**
+ * Capture performance issue
+ */
+export function capturePerformanceIssue(
+  name: string,
+  duration: number,
+  threshold: number,
+  context?: {
+    component?: string
+    operation?: string
+    url?: string
+    additional?: Record<string, any>
+  }
+) {
+  if (!SENTRY_FEATURES.enabled) {
+    return
+  }
+
+  return captureMessage(
+    `Performance issue detected: ${name} took ${duration}ms (threshold: ${threshold}ms)`,
+    'warning',
+    {
+      component: context?.component || 'performance',
+      operation: context?.operation || 'timing',
+      tags: {
+        performance_issue: 'true',
+        metric_name: name,
+      },
+      extra: {
+        duration,
+        threshold,
+        exceeded_by: duration - threshold,
+        url: context?.url,
+        ...context?.additional,
+      },
+    }
+  )
+}
+
+/**
+ * Capture user action with context
+ */
+export function captureUserAction(
+  action: string,
+  component: string,
+  success: boolean,
+  context?: {
+    userId?: string
+    duration?: number
+    additional?: Record<string, any>
+  }
+) {
+  if (!SENTRY_FEATURES.enabled) {
+    return
+  }
+
+  addBreadcrumb({
+    category: 'user_action',
+    message: `User ${success ? 'successfully' : 'unsuccessfully'} performed ${action} in ${component}`,
+    level: success ? 'info' : 'warning',
+    data: {
+      action,
+      component,
+      success,
+      userId: context?.userId,
+      duration: context?.duration,
+      ...context?.additional,
+    },
+  })
+}
+
+/**
+ * Check if Sentry is properly enabled and configured
+ */
+export function isSentryEnabled(): boolean {
+  return SENTRY_FEATURES.enabled && !!process.env.NEXT_PUBLIC_SENTRY_DSN
 }
